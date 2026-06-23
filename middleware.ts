@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
-// Route gate: anyone not signed in is redirected to /login. Also keeps the
-// Supabase session cookie fresh on every request.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
 
@@ -42,6 +40,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except Next static assets and image files.
   matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
 }
