@@ -1,65 +1,131 @@
-import Image from "next/image";
+import { supabase } from "@/lib/supabase"
+import { PortfolioTiles } from "@/components/dashboard/portfolio-tiles"
+import { AlertsPanel } from "@/components/dashboard/alerts-panel"
+import type { PortfolioHealth, LeaseAlert } from "@/lib/types"
 
-export default function Home() {
+export const revalidate = 300
+
+export default async function DashboardPage() {
+  const [
+    { data: portfolioHealth },
+    { data: expiryAlerts },
+    { data: reviewAlerts },
+    { data: assetFlags },
+    { data: outstandingCharges },
+    { data: arrears },
+  ] =
+    await Promise.all([
+      supabase.from("v_portfolio_health").select("*"),
+      // Lease expiry within 6 months — needs active re-letting or renewal decision
+      supabase
+        .from("v_lease_alerts")
+        .select("*")
+        .eq("alert_type", "LEASE_EXPIRY")
+        .lte("days_until", 180)
+        .order("days_until", { ascending: true }),
+      // Rent reviews and break clauses within 90 days
+      supabase
+        .from("v_lease_alerts")
+        .select("*")
+        .in("alert_type", ["RENT_REVIEW", "BREAK_CLAUSE"])
+        .lte("days_until", 90)
+        .order("days_until", { ascending: true }),
+      supabase.from("assets").select("asset_id, asset_reference, income_owned"),
+      supabase
+        .from("v_charge_ledger")
+        .select("asset_id, charge_type, outstanding_amount, status")
+        .in("status", ["ISSUED", "OVERDUE", "PART_PAID"]),
+      supabase.from("v_arrears_summary").select("tenant_id, asset_id, total_outstanding"),
+    ])
+
+  const today = new Date().toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  })
+
+  const assets = portfolioHealth as PortfolioHealth[] ?? []
+  const expiry = expiryAlerts as LeaseAlert[] ?? []
+  const reviews = reviewAlerts as LeaseAlert[] ?? []
+  const allActions = [...expiry, ...reviews]
+
+  // Financial summary — owned assets only (Southgate is managed, income not 2i's)
+  const ownedAssetIds = new Set(
+    (assetFlags ?? []).filter(a => a.income_owned !== false).map(a => a.asset_id)
+  )
+  const ownedRentRoll = assets
+    .filter(a => ownedAssetIds.has(a.asset_id))
+    .reduce((s, a) => s + (a.total_annual_rent ?? 0), 0)
+  const ownedCharges = (outstandingCharges ?? []).filter(c => ownedAssetIds.has(c.asset_id))
+  const rentOutstanding = ownedCharges
+    .filter(c => c.charge_type === "RENT")
+    .reduce((s, c) => s + parseFloat(c.outstanding_amount ?? "0"), 0)
+  const electricOutstanding = ownedCharges
+    .filter(c => c.charge_type === "ELECTRIC")
+    .reduce((s, c) => s + parseFloat(c.outstanding_amount ?? "0"), 0)
+  const arrearsTenants = (arrears ?? []).filter(a => ownedAssetIds.has(a.asset_id)).length
+
+  const gbp = (n: number) =>
+    new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(n)
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="p-8 max-w-screen-xl space-y-7">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Portfolio Overview</h1>
+        <p className="text-sm text-slate-400 mt-0.5">{today}</p>
+      </div>
+
+      {allActions.length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium">
+          <span>&#9889;</span>
+          <span>
+            {expiry.length > 0 && `${expiry.length} lease${expiry.length !== 1 ? "s" : ""} expiring within 6 months`}
+            {expiry.length > 0 && reviews.length > 0 && " · "}
+            {reviews.length > 0 && `${reviews.length} rent review${reviews.length !== 1 ? "s" : ""} / break clause${reviews.length !== 1 ? "s" : ""} due within 90 days`}
+          </span>
+        </div>
+      )}
+
+      {/* Financial summary — owned portfolio */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Rent Roll (Owned)</p>
+          <p className="text-2xl font-bold text-slate-900">{gbp(ownedRentRoll)}</p>
+          <p className="text-xs text-slate-400 mt-1">{gbp(ownedRentRoll / 12)} / month {String.fromCharCode(0x00B7)} contracted</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Rent Outstanding</p>
+          <p className={`text-2xl font-bold ${rentOutstanding > 0 ? "text-red-600" : "text-slate-400"}`}>
+            {gbp(rentOutstanding)}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">Owned assets only</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Electric Outstanding</p>
+          <p className={`text-2xl font-bold ${electricOutstanding > 0 ? "text-red-600" : "text-slate-400"}`}>
+            {gbp(electricOutstanding)}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">Owned assets only</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Tenants in Arrears</p>
+          <p className={`text-2xl font-bold ${arrearsTenants > 0 ? "text-amber-600" : "text-slate-400"}`}>
+            {arrearsTenants}
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+
+      <div>
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+          Assets &#8212; click to open
+        </h2>
+        <PortfolioTiles data={assets} />
+      </div>
+
+      {expiry.length > 0 && (
+        <AlertsPanel title="Leases Expiring Within 6 Months" alerts={expiry} variant="critical" />
+      )}
+      {reviews.length > 0 && (
+        <AlertsPanel title="Rent Reviews & Break Clauses — Next 90 Days" alerts={reviews} variant="review" />
+      )}
     </div>
-  );
+  )
 }

@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local project artifacts — not needed for deployment; may contain secrets or tenant data
+*.ps1
+seed.sql
+*.xlsx
+*.docx
+/Archive/
