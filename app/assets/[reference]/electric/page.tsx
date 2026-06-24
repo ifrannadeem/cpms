@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import ElectricEntry, { type MeterRow } from './electric-entry'
+import ElectricEntry, { type MeterRow, type CycleRead } from './electric-entry'
 import ElectricMatrix, { type MatrixMonth, type MatrixRow, type MatrixCell } from './electric-matrix'
 import SupplierBillEntry from './supplier-bill-entry'
 import BulkReadingUpload from './bulk-reading-upload'
@@ -85,7 +85,7 @@ export default async function AssetElectricPage({ params }: Props) {
     meterIds.length > 0
       ? supabase
           .from('meter_reads')
-          .select('meter_id, read_date, reading_value')
+          .select('read_id, meter_id, read_date, reading_value, consumption_kwh, charge_id')
           .in('meter_id', meterIds)
           .order('read_date', { ascending: false })
       : Promise.resolve({ data: [] }),
@@ -103,6 +103,33 @@ export default async function AssetElectricPage({ params }: Props) {
   const lastRead = new Map<string, { read_date: string; reading_value: string }>()
   for (const r of reads ?? []) {
     if (!lastRead.has(r.meter_id)) lastRead.set(r.meter_id, r)
+  }
+
+  // Per-meter cycle reads (read_id, date, value, consumption, whether still editable).
+  // A read is editable if it raised no charge (billing-off / opening) or its charge is still DRAFT.
+  const chargeIdsForReads = Array.from(
+    new Set((reads ?? []).map(r => r.charge_id).filter((id): id is string => !!id))
+  )
+  const chargeStatusById = new Map<string, string>()
+  if (chargeIdsForReads.length > 0) {
+    const { data: chgStatuses } = await supabase
+      .from('charge_records')
+      .select('charge_id, status')
+      .in('charge_id', chargeIdsForReads)
+    for (const c of chgStatuses ?? []) chargeStatusById.set(c.charge_id, c.status)
+  }
+  const readsByMeter = new Map<string, CycleRead[]>()
+  for (const r of reads ?? []) {
+    const arr = readsByMeter.get(r.meter_id) ?? []
+    const editable = !r.charge_id || chargeStatusById.get(r.charge_id) === 'DRAFT'
+    arr.push({
+      read_id: r.read_id,
+      date: r.read_date,
+      value: parseFloat(r.reading_value),
+      consumption: r.consumption_kwh != null ? parseFloat(r.consumption_kwh) : null,
+      editable,
+    })
+    readsByMeter.set(r.meter_id, arr)
   }
 
   const leaseById  = new Map((allLeases ?? []).map(l => [l.lease_id, l]))
@@ -138,6 +165,7 @@ export default async function AssetElectricPage({ params }: Props) {
         last_value: last ? parseFloat(last.reading_value) : null,
         rate: rateFor(unit?.block_id ?? null),
         active: m.active !== false,
+        reads: readsByMeter.get(m.meter_id) ?? [],
       }
     })
     .sort((a, b) => a.unit_label.localeCompare(b.unit_label, undefined, { numeric: true }))
