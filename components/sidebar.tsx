@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, FileText, Building2, LogOut } from 'lucide-react'
+import { LayoutDashboard, FileText, Building2, FileSpreadsheet, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase-browser'
 
 const navigation = [
-  { name: 'Dashboard',      href: '/',       icon: LayoutDashboard },
-  { name: 'Lease Register', href: '/leases', icon: FileText },
+  { name: 'Dashboard',      href: '/',        icon: LayoutDashboard },
+  { name: 'Lease Register', href: '/leases',  icon: FileText },
+  { name: 'Reports',        href: '/reports', icon: FileSpreadsheet },
 ]
 
 const assets = [
