@@ -3,6 +3,8 @@ import Link from 'next/link'
 import NotesEditor from '@/components/leases/notes-editor'
 import TenantEditor, { type TenantDetails } from '@/components/leases/tenant-editor'
 import LeaseTermsEditor, { type LeaseTerms } from '@/components/leases/lease-terms-editor'
+import PropertyTenancyEditor, { type LeaseProperty } from '@/components/leases/property-tenancy-editor'
+import RentReviewEditor, { type LeaseReview } from '@/components/leases/rent-review-editor'
 import ActivityLog, { type ActivityEntry } from '@/components/leases/activity-log'
 import IncentivesEditor, { type Incentive } from '@/components/leases/incentives-editor'
 import TenancyActions from '@/components/leases/tenancy-actions'
@@ -106,7 +108,7 @@ export default async function TenancyPage({ params }: Props) {
     supabase.from('v_lease_register').select('*').eq('lease_id', leaseId).single(),
     supabase
       .from('leases')
-      .select('lease_type, lease_state, permitted_use, original_start_date, commencement_date, expiry_date, annual_rent, billing_frequency, next_rent_review_date, rent_review_basis, last_review_date, break_clause_date, break_clause_party, insurance_recharge, deposit_amount, deposit_type, document_id, tenant_id')
+      .select('lease_type, lease_state, permitted_use, original_start_date, commencement_date, expiry_date, annual_rent, billing_frequency, billing_day, next_rent_review_date, rent_review_basis, rent_review_frequency_months, last_review_date, break_clause_date, break_clause_party, insurance_recharge, deposit_amount, deposit_type, document_id, tenant_id')
       .eq('lease_id', leaseId)
       .single(),
     supabase
@@ -206,8 +208,6 @@ export default async function TenancyPage({ params }: Props) {
   const unitType = lease.unit_types?.split(', ')[0] ?? ''
   const unitTypeLabel = UNIT_TYPE_LABEL[unitType] ?? unitType
   const unitDisplay = formatUnit(lease.unit_references)
-  const totalTerm = durationVerbose(leaseRow.original_start_date)
-  const fixedTerm = durationVerbose(leaseRow.commencement_date, leaseRow.expiry_date)
 
   // Rent review & renewal block
   const isPeriodic = leaseRow.lease_state === 'PERIODIC'
@@ -224,47 +224,9 @@ export default async function TenancyPage({ params }: Props) {
     actionRequired = `Begin renewal discussions ${DASH} lease ends in ${expiryDays} days`
   }
 
-  const reviewRows: [string, string][] = [
-    ['Next Rent Review', leaseRow.next_rent_review_date ? fmtDate(leaseRow.next_rent_review_date) : 'None scheduled'],
-    ['Review Basis', leaseRow.rent_review_basis && leaseRow.rent_review_basis !== 'NONE'
-      ? leaseRow.rent_review_basis.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase())
-      : 'None'],
-    ['Last Reviewed', leaseRow.last_review_date ? fmtDate(leaseRow.last_review_date) : DASH],
-    ['Renewal Due', isPeriodic
-      ? `Rolling ${DASH} renewal possible at any time`
-      : (leaseRow.expiry_date ? fmtDate(leaseRow.expiry_date) : DASH)],
-    ['Action Required', actionRequired],
-  ]
-
   const detailRows: [string, React.ReactNode][] = [
     ['Unit Reference', <span key="r" className="font-mono">{lease.lease_reference}</span>],
     ['Property', `${unitDisplay}${unitTypeLabel ? ` / ${unitTypeLabel}` : ''}`],
-    ['Permitted Use', leaseRow.permitted_use ?? DASH],
-    ['Type of Tenancy', tenancyTypeLabel(leaseRow.lease_type, leaseRow.lease_state)],
-    ['Commencement & Term', (
-      <span key="ld">
-        Commencement: <span className="font-medium">{fmtDate(leaseRow.commencement_date)}</span>
-        <span className="text-slate-300 mx-2">|</span>
-        Term: <span className="font-medium">{fixedTerm ?? DASH}</span>
-      </span>
-    )],
-    ['Occupancy', (
-      <span key="o" className="block">
-        <span className="block">
-          Original: <span className="font-medium">{fmtDate(leaseRow.original_start_date)}</span>
-          <span className="text-slate-300 mx-2">|</span>
-          Renewal: <span className="font-medium">{fmtDate(leaseRow.commencement_date)}</span>
-          <span className="text-slate-300 mx-2">|</span>
-          End of fixed term: <span className="font-medium">{fmtDate(leaseRow.expiry_date)}</span>
-        </span>
-        {totalTerm && (
-          <span className="block text-xs text-slate-500 mt-1">
-            Total Term: <span className="font-semibold text-slate-700">{totalTerm}</span>
-          </span>
-        )}
-      </span>
-    )],
-    ['Billing Frequency', FREQ_LABEL[leaseRow.billing_frequency] ?? leaseRow.billing_frequency ?? DASH],
     ['Lease Document', (
       <LeaseDocument
         key="doc"
@@ -275,6 +237,31 @@ export default async function TenancyPage({ params }: Props) {
     )],
   ]
 
+  const leaseProperty: LeaseProperty = {
+    lease_id: leaseId,
+    lease_type: leaseRow.lease_type,
+    lease_state: leaseRow.lease_state,
+    permitted_use: leaseRow.permitted_use,
+    commencement_date: leaseRow.commencement_date,
+    expiry_date: leaseRow.expiry_date,
+    original_start_date: leaseRow.original_start_date,
+    billing_frequency: leaseRow.billing_frequency,
+    billing_day: leaseRow.billing_day != null ? Number(leaseRow.billing_day) : null,
+  }
+
+  const leaseReview: LeaseReview = {
+    lease_id: leaseId,
+    next_rent_review_date: leaseRow.next_rent_review_date,
+    rent_review_basis: leaseRow.rent_review_basis,
+    rent_review_frequency_months: leaseRow.rent_review_frequency_months != null ? Number(leaseRow.rent_review_frequency_months) : null,
+    last_review_date: leaseRow.last_review_date,
+    renewal_due: isPeriodic
+      ? `Rolling ${DASH} renewal possible at any time`
+      : (leaseRow.expiry_date ? fmtDate(leaseRow.expiry_date) : DASH),
+    action_required: actionRequired,
+    action_highlight: actionRequired !== 'None' && !isPeriodic,
+  }
+
   const leaseTerms: LeaseTerms = {
     lease_id: leaseId,
     permitted_use: leaseRow.permitted_use,
@@ -282,6 +269,7 @@ export default async function TenancyPage({ params }: Props) {
     insurance_recharge: leaseRow.insurance_recharge === true,
     deposit_amount: leaseRow.deposit_amount != null ? parseFloat(leaseRow.deposit_amount) : null,
     deposit_type: leaseRow.deposit_type,
+    annual_rent: leaseRow.annual_rent != null ? parseFloat(leaseRow.annual_rent) : null,
     electric_recharge: electricRecharge,
   }
 
@@ -337,6 +325,7 @@ export default async function TenancyPage({ params }: Props) {
             </div>
           ))}
         </div>
+        <PropertyTenancyEditor lease={leaseProperty} />
       </div>
 
       {/* Financial terms */}
@@ -358,16 +347,7 @@ export default async function TenancyPage({ params }: Props) {
       {/* Rent review & renewal */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">Rent Review &amp; Renewal</h2>
-        <div className="divide-y divide-slate-100">
-          {reviewRows.map(([label, value]) => (
-            <div key={label} className="grid grid-cols-[180px_1fr] gap-4 py-2.5 items-baseline">
-              <div className="text-xs text-slate-400 uppercase tracking-wide">{label}</div>
-              <div className={`text-sm ${label === 'Action Required' && actionRequired !== 'None' && !isPeriodic ? 'text-amber-700 font-medium' : 'text-slate-900'}`}>
-                {value}
-              </div>
-            </div>
-          ))}
-        </div>
+        <RentReviewEditor review={leaseReview} />
       </div>
 
       {/* Tenancy actions */}

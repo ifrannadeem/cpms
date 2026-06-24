@@ -83,14 +83,17 @@ interface Props {
   rentRows: RentRow[]
 }
 
-function currentMonthValue(): string {
+// Rent is billed in advance, so the next run is next month — default the picker to it.
+function nextRunMonth(): string {
   const d = new Date()
+  d.setDate(1)
+  d.setMonth(d.getMonth() + 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 export default function InvoicingClient({ assetId, rentRows }: Props) {
   const router = useRouter()
-  const [month, setMonth]     = useState(currentMonthValue())
+  const [month, setMonth]     = useState(nextRunMonth())
   const [busy, setBusy]       = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [preview, setPreview] = useState<PreviewRow[] | null>(null)

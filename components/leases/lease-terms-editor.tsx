@@ -14,6 +14,7 @@ export interface LeaseTerms {
   insurance_recharge: boolean
   deposit_amount: number | null
   deposit_type: string | null
+  annual_rent: number | null
   electric_recharge: boolean   // derived from meter status, display only
 }
 
@@ -38,7 +39,7 @@ export default function LeaseTermsEditor({ terms }: { terms: LeaseTerms }) {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const [form, setForm] = useState({
-    permittedUse: terms.permitted_use ?? '',
+    rent: terms.annual_rent != null ? String(terms.annual_rent) : '',
     vat: terms.vat_treatment ?? 'EXEMPT',
     insurance: terms.insurance_recharge,
     deposit: terms.deposit_amount != null ? String(terms.deposit_amount) : '',
@@ -49,10 +50,10 @@ export default function LeaseTermsEditor({ terms }: { terms: LeaseTerms }) {
     setError(null)
     const { error: rpcError } = await supabase.rpc('fn_update_lease_terms', {
       p_lease_id: terms.lease_id,
-      p_permitted_use: form.permittedUse.trim() || null,
       p_vat_treatment: form.vat,
       p_insurance_recharge: form.insurance,
       p_deposit_amount: form.deposit.trim() === '' ? null : parseFloat(form.deposit),
+      p_annual_rent: form.rent.trim() === '' ? null : parseFloat(form.rent),
     })
     setSaving(false)
     if (rpcError) {
@@ -98,16 +99,21 @@ export default function LeaseTermsEditor({ terms }: { terms: LeaseTerms }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs text-slate-500 mb-1.5">VAT Applicable</label>
-          <select value={form.vat} onChange={e => setForm({ ...form, vat: e.target.value })}
-            className={`${inputClass} bg-white`}>
-            {VAT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <label className="block text-xs text-slate-500 mb-1.5">Headline Rent ({POUND} per annum)</label>
+          <input type="number" step="0.01" min="0" value={form.rent}
+            onChange={e => setForm({ ...form, rent: e.target.value })} className={inputClass} />
         </div>
         <div>
           <label className="block text-xs text-slate-500 mb-1.5">Deposit Held ({POUND})</label>
           <input type="number" step="0.01" min="0" value={form.deposit}
             onChange={e => setForm({ ...form, deposit: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1.5">VAT Applicable</label>
+          <select value={form.vat} onChange={e => setForm({ ...form, vat: e.target.value })}
+            className={`${inputClass} bg-white`}>
+            {VAT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </div>
         <div>
           <label className="block text-xs text-slate-500 mb-1.5">Insurance Recharge</label>
@@ -118,15 +124,11 @@ export default function LeaseTermsEditor({ terms }: { terms: LeaseTerms }) {
             <option value="YES">Yes</option>
           </select>
         </div>
-        <div>
-          <label className="block text-xs text-slate-500 mb-1.5">Permitted Use</label>
-          <input type="text" value={form.permittedUse} placeholder="e.g. Office use (Class E)"
-            onChange={e => setForm({ ...form, permittedUse: e.target.value })} className={inputClass} />
-        </div>
       </div>
       <p className="text-xs text-slate-400">
-        Electric recharge is controlled by the meter billing toggle on the Electric page.
-        VAT changes apply to future rent charges only.
+        Headline rent is the contractual annual rent before any incentives. Discounts and rent-free
+        periods are managed under Rent Adjustments below. Electric recharge is controlled by the meter
+        billing toggle on the Electric page. VAT changes apply to future rent charges only.
       </p>
       {error && <p className="text-red-600 text-sm">{error}</p>}
       <div className="flex items-center gap-3">
