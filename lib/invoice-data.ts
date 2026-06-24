@@ -99,6 +99,18 @@ export function buildReference(kind: string, periodStart: string, periodEnd: str
   return `R${yymm(periodStart)}-${code}`
 }
 
+/** Strip characters that are illegal in Windows file names. */
+function sanitizeFileName(s: string): string {
+  return s.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** "2607. Invoice - Rent - Unit 12 Idris Rehman.pdf" (rent = period_start month, electric = period_end month) */
+export function invoiceFileName(inv: InvoiceData): string {
+  const ym = yymm(inv.kind === 'ELECTRIC' ? inv.periodEnd : inv.periodStart)
+  const typeLabel = inv.kind === 'ELECTRIC' ? 'Electric' : inv.kind === 'RENT' ? 'Rent' : 'Charge'
+  return sanitizeFileName(`${ym}. Invoice - ${typeLabel} - ${inv.premisesLabel} ${inv.tenantName}`) + '.pdf'
+}
+
 export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData[]> {
   if (chargeIds.length === 0) return []
 

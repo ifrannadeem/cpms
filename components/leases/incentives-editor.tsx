@@ -44,9 +44,10 @@ const inputClass =
 
 export default function IncentivesEditor({ leaseId, incentives }: Props) {
   const router = useRouter()
-  const [adding, setAdding] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState<string | null>(null)
+  const [adding, setAdding]     = useState(false)
+  const [editingId, setEditing] = useState<string | null>(null)
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState<string | null>(null)
   const [form, setForm] = useState({
     type: 'FIXED_DISCOUNT',
     headline: '',
@@ -62,26 +63,60 @@ export default function IncentivesEditor({ leaseId, incentives }: Props) {
     (!i.incentive_start_date || i.incentive_start_date <= today) &&
     (!i.incentive_end_date || i.incentive_end_date >= today)
 
-  async function handleAdd() {
+  function resetForm() {
+    setForm({ type: 'FIXED_DISCOUNT', headline: '', billed: '', start: today, end: '', notes: '' })
+  }
+
+  function startAdd() {
+    resetForm()
+    setEditing(null)
+    setError(null)
+    setAdding(true)
+  }
+
+  function startEdit(i: Incentive) {
+    setForm({
+      type: i.incentive_type,
+      headline: i.headline_amount_annual ?? '',
+      billed: i.billed_amount_monthly ?? '',
+      start: i.incentive_start_date ?? today,
+      end: i.incentive_end_date ?? '',
+      notes: '',
+    })
+    setEditing(i.incentive_id)
+    setError(null)
+    setAdding(true)
+  }
+
+  async function handleSave() {
     setSaving(true)
     setError(null)
-    const { error: rpcError } = await supabase.rpc('fn_add_rent_incentive', {
-      p_lease_id: leaseId,
+    const common = {
       p_type: form.type,
       p_headline_annual: form.headline.trim() === '' ? null : parseFloat(form.headline),
       p_billed_monthly: form.type === 'RENT_FREE' ? 0 : (form.billed.trim() === '' ? null : parseFloat(form.billed)),
       p_start_date: form.start,
       p_end_date: form.end.trim() === '' ? null : form.end,
-      p_notes: form.notes.trim() || null,
-    })
+    }
+    const { error: rpcError } = editingId
+      ? await supabase.rpc('fn_update_rent_incentive', { p_incentive_id: editingId, ...common })
+      : await supabase.rpc('fn_add_rent_incentive', { p_lease_id: leaseId, ...common, p_notes: form.notes.trim() || null })
     setSaving(false)
     if (rpcError) {
       setError(rpcError.message)
     } else {
       setAdding(false)
-      setForm({ ...form, headline: '', billed: '', end: '', notes: '' })
+      setEditing(null)
+      resetForm()
       router.refresh()
     }
+  }
+
+  async function handleDelete(incentiveId: string) {
+    if (!confirm('Delete this arrangement permanently? This cannot be undone.')) return
+    const { error: rpcError } = await supabase.rpc('fn_delete_rent_incentive', { p_incentive_id: incentiveId })
+    if (rpcError) setError(rpcError.message)
+    else router.refresh()
   }
 
   async function handleEnd(incentiveId: string) {
@@ -106,7 +141,7 @@ export default function IncentivesEditor({ leaseId, incentives }: Props) {
         </p>
         {!adding && (
           <button
-            onClick={() => setAdding(true)}
+            onClick={startAdd}
             className="px-3 py-1 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 transition-colors"
           >
             + Add Arrangement
@@ -145,15 +180,27 @@ export default function IncentivesEditor({ leaseId, incentives }: Props) {
                   <td className="py-2 pr-4 text-right font-medium text-slate-900">{fmt(i.billed_amount_monthly)}</td>
                   <td className="py-2 pr-4 text-slate-600 text-xs whitespace-nowrap">{fmtDate(i.incentive_start_date)}</td>
                   <td className="py-2 pr-4 text-slate-600 text-xs whitespace-nowrap">{fmtDate(i.incentive_end_date)}</td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => startEdit(i)}
+                      className="text-xs font-medium text-blue-600 hover:underline mr-3"
+                    >
+                      Edit
+                    </button>
                     {current && (
                       <button
                         onClick={() => handleEnd(i.incentive_id)}
-                        className="text-xs font-medium text-slate-500 hover:text-red-600 hover:underline"
+                        className="text-xs font-medium text-slate-500 hover:text-amber-600 hover:underline mr-3"
                       >
                         End
                       </button>
                     )}
+                    <button
+                      onClick={() => handleDelete(i.incentive_id)}
+                      className="text-xs font-medium text-slate-500 hover:text-red-600 hover:underline"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               )
@@ -208,11 +255,11 @@ export default function IncentivesEditor({ leaseId, incentives }: Props) {
           </p>
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <div className="flex items-center gap-3">
-            <button onClick={handleAdd} disabled={saving}
+            <button onClick={handleSave} disabled={saving}
               className="px-5 py-2 bg-slate-800 text-white text-xs font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors">
-              {saving ? 'Saving...' : 'Add'}
+              {saving ? 'Saving...' : editingId ? 'Save changes' : 'Add'}
             </button>
-            <button onClick={() => setAdding(false)}
+            <button onClick={() => { setAdding(false); setEditing(null) }}
               className="px-4 py-2 text-slate-500 text-xs font-medium hover:text-slate-800 transition-colors">
               Cancel
             </button>

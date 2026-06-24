@@ -199,26 +199,27 @@ export default async function AssetBillingPage({ params, searchParams }: Props) 
           <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">Invoice PDFs</h2>
           <div className="flex flex-wrap gap-2">
             {rentMonths.map(m => (
-              <a key={'r' + m}
-                href={`/api/invoices?assetId=${asset.asset_id}&month=${m}&type=RENT`}
-                target="_blank"
-                className="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-              >
-                Rent {DASH} {monthLabel(m)}
-              </a>
+              <div key={'r' + m} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 pl-3 pr-2 py-1.5">
+                <span className="text-xs font-medium text-slate-600 mr-1">Rent {DASH} {monthLabel(m)}</span>
+                <a href={`/api/invoices?assetId=${asset.asset_id}&month=${m}&type=RENT`} target="_blank"
+                  className="text-xs font-medium text-blue-600 hover:underline px-1.5">PDF</a>
+                <a href={`/api/invoices?assetId=${asset.asset_id}&month=${m}&type=RENT&format=zip`}
+                  className="text-xs font-medium text-blue-600 hover:underline px-1.5">ZIP</a>
+              </div>
             ))}
             {electricMonths.map(m => (
-              <a key={'e' + m}
-                href={`/api/invoices?assetId=${asset.asset_id}&month=${m}&type=ELECTRIC`}
-                target="_blank"
-                className="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-              >
-                Electric {DASH} {monthLabel(m)}
-              </a>
+              <div key={'e' + m} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 pl-3 pr-2 py-1.5">
+                <span className="text-xs font-medium text-slate-600 mr-1">Electric {DASH} {monthLabel(m)}</span>
+                <a href={`/api/invoices?assetId=${asset.asset_id}&month=${m}&type=ELECTRIC`} target="_blank"
+                  className="text-xs font-medium text-blue-600 hover:underline px-1.5">PDF</a>
+                <a href={`/api/invoices?assetId=${asset.asset_id}&month=${m}&type=ELECTRIC&format=zip`}
+                  className="text-xs font-medium text-blue-600 hover:underline px-1.5">ZIP</a>
+              </div>
             ))}
           </div>
           <p className="text-xs text-slate-400 mt-3">
-            Each pack contains one invoice per tenant, ready to print or send.
+            <strong>PDF</strong> = one combined file (print the lot). <strong>ZIP</strong> = a separate, correctly-named
+            PDF per tenant (e.g. {'"2607. Invoice - Rent - Unit 12 Idris Rehman.pdf"'}) {DASH} ready to file in tenant folders.
           </p>
         </div>
       )}

@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { assembleInvoices, monthLabel } from '@/lib/invoice-data'
+import { assembleInvoices, monthLabel, invoiceFileName } from '@/lib/invoice-data'
 import { renderInvoicesPdf } from '@/lib/invoice-pdf'
+import JSZip from 'jszip'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/invoices?chargeId=...                       -> single invoice PDF
- * GET /api/invoices?assetId=...&month=YYYY-MM[&type=RENT|ELECTRIC] -> batch PDF
+ * GET /api/invoices?chargeId=...                                  -> single invoice PDF
+ * GET /api/invoices?assetId=...&month=YYYY-MM[&type=RENT|ELECTRIC] -> one combined PDF
+ * GET /api/invoices?assetId=...&month=YYYY-MM[&type=...]&format=zip -> ZIP of individually-named PDFs
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -16,6 +18,7 @@ export async function GET(req: NextRequest) {
   const assetId  = searchParams.get('assetId')
   const month    = searchParams.get('month')
   const type     = searchParams.get('type')
+  const format   = searchParams.get('format')
 
   let chargeIds: string[] = []
   let filename = 'invoice.pdf'
@@ -65,8 +68,28 @@ export async function GET(req: NextRequest) {
     if (invoices.length === 0) {
       return NextResponse.json({ error: 'No invoice data found' }, { status: 404 })
     }
+
+    // ZIP: one correctly-named PDF per invoice, ready to file into tenant folders
+    if (format === 'zip') {
+      const zip = new JSZip()
+      for (const inv of invoices) {
+        const onePdf = await renderInvoicesPdf([inv])
+        zip.file(invoiceFileName(inv), new Uint8Array(onePdf))
+      }
+      const zipBuf = await zip.generateAsync({ type: 'uint8array' })
+      const yymm = (month ?? '').slice(2, 4) + (month ?? '').slice(5, 7)
+      const typeLabel = type === 'ELECTRIC' ? 'Electric' : type === 'RENT' ? 'Rent' : 'All'
+      const zipName = `${yymm} ${typeLabel} Invoices.zip`
+      return new NextResponse(new Uint8Array(zipBuf), {
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="${zipName}"`,
+        },
+      })
+    }
+
     if (chargeId) {
-      filename = `${invoices[0].reference}.pdf`
+      filename = invoiceFileName(invoices[0])
     }
     const pdf = await renderInvoicesPdf(invoices)
     return new NextResponse(new Uint8Array(pdf), {
