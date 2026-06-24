@@ -128,13 +128,14 @@ export default async function AssetBillingPage({ params, searchParams }: Props) 
     { title: 'Overdue (1+ period old)', rent: fmt(rentM.overdue), elec: fmt(elecM.overdue), alert: true },
   ]
 
-  // Invoice packs: rent grouped by period_start month, electric by period_end month
+  // Invoice packs: only ISSUED+ charges (dueRows excludes Draft/Approved), so the
+  // PDF/ZIP links appear only once invoices have actually been issued.
   const rentMonths = Array.from(new Set(
-    allRows.filter(c => c.charge_type === 'RENT' && c.period_start)
+    dueRows.filter(c => c.charge_type === 'RENT' && c.period_start)
       .map(c => String(c.period_start).slice(0, 7))
   )).sort().reverse()
   const electricMonths = Array.from(new Set(
-    allRows.filter(c => c.charge_type === 'ELECTRIC' && c.period_end)
+    dueRows.filter(c => c.charge_type === 'ELECTRIC' && c.period_end)
       .map(c => String(c.period_end).slice(0, 7))
   )).sort().reverse()
 

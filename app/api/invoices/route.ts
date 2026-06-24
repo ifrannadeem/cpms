@@ -30,12 +30,12 @@ export async function GET(req: NextRequest) {
     const monthEndExcl = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 1)
       .toISOString().slice(0, 10)
 
+    // Packs/zip contain ISSUED+ invoices only (never Draft/Approved/Credited/Written-off).
     let q = supabase
       .from('charge_records')
       .select('charge_id, charge_type, period_start, period_end')
       .eq('asset_id', assetId)
-      .neq('status', 'CREDITED')
-      .neq('status', 'WRITTEN_OFF')
+      .in('status', ['ISSUED', 'OVERDUE', 'PART_PAID', 'PAID'])
     if (type) q = q.eq('charge_type', type)
     const { data, error } = await q
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
