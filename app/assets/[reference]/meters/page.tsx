@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import AssetTabs from '@/components/asset-tabs'
-import ManageMeters, { type MeterRow } from './manage-meters'
+import ManageMeters, { type MeterRow } from '@/components/meters/manage-meters'
 
 interface Props {
   params: Promise<{ reference: string }>
