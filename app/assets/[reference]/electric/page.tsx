@@ -308,11 +308,17 @@ export default async function AssetElectricPage({ params }: Props) {
 
       <AssetTabs reference={reference} active="electric" />
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
-          {asset.asset_name} {DASH} Meter Readings
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">Enter readings, then review usage and cost. Record electric payments on the Electric: Payments tab.</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {asset.asset_name} {DASH} Meter Readings
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Enter readings, then review usage and cost. Record electric payments on the Electric: Payments tab.</p>
+        </div>
+        <Link href={`/assets/${reference}/meters`}
+          className="shrink-0 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+          Manage meters
+        </Link>
       </div>
 
       {/* Per-block dashboard — each block is a separate supplier account */}
