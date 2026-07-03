@@ -97,9 +97,9 @@ export default function PaymentGrid({ assetId, rows, chargeType }: Props) {
       return
     }
     update(row.lease_id, { saving: true, error: null, result: null })
-    const { data, error } = await supabase.rpc('fn_record_asset_payment', {
-      p_asset_id:     assetId,
-      p_tenant_id:    row.tenant_id,
+    // Scope the payment to THIS lease so a tenant's independent units stay separate.
+    const { data, error } = await supabase.rpc('fn_record_lease_payment', {
+      p_lease_id:     row.lease_id,
       p_amount:       amount,
       p_payment_date: s.date,
       p_method:       s.method,

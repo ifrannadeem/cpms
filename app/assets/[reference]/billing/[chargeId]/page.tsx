@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import AdjustCharge from '@/components/billing/adjust-charge'
 
 interface Props {
   params: Promise<{ reference: string; chargeId: string }>
@@ -151,6 +152,13 @@ export default async function ChargeDetailPage({ params }: Props) {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Note</p>
           <p className="text-sm text-amber-800">{charge.notes}</p>
+        </div>
+      )}
+
+      {/* Adjust issued invoice (grace reductions, agreed changes after issue) */}
+      {canPay && (
+        <div className="mb-6">
+          <AdjustCharge chargeId={chargeId} currentNet={parseFloat(charge.net_amount ?? '0')} />
         </div>
       )}
 

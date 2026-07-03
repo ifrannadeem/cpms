@@ -3,6 +3,7 @@ import { ImageResponse } from 'next/og'
 export const size = { width: 512, height: 512 }
 export const contentType = 'image/png'
 
+// Branded favicon: Opera "O" mark on the deep-navy brand background.
 export default function Icon() {
   return new ImageResponse(
     (
@@ -13,15 +14,14 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#2563eb',
-          color: '#ffffff',
-          fontSize: 130,
+          background: '#0d1b2a',
+          color: '#3b82f6',
+          fontSize: 340,
           fontWeight: 700,
-          letterSpacing: -4,
           fontFamily: 'sans-serif',
         }}
       >
-        CPMS
+        O
       </div>
     ),
     { ...size },

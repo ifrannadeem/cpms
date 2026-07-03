@@ -36,12 +36,11 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-slate-700/60 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-            <Building2 className="h-4 w-4 text-white" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/Opera%20Logo.png" alt="Opera" className="h-9 w-9 rounded-lg object-cover shrink-0" />
           <div>
-            <div className="text-white font-semibold text-sm leading-tight">CPMS</div>
-            <div className="text-slate-400 text-[11px] leading-tight">Portfolio Operating System</div>
+            <div className="text-white font-semibold text-sm leading-tight">Opera</div>
+            <div className="text-slate-400 text-[11px] leading-tight">Property Management</div>
           </div>
         </div>
       </div>

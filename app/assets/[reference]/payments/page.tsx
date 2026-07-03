@@ -60,7 +60,7 @@ export default async function AssetPaymentsPage({ params }: Props) {
       .order('created_at', { ascending: false }),
     supabase
       .from('v_charge_ledger')
-      .select('tenant_id, outstanding_amount, status')
+      .select('lease_id, outstanding_amount, status')
       .eq('asset_id', asset.asset_id)
       .eq('charge_type', 'RENT')
       .in('status', ['ISSUED', 'OVERDUE', 'PART_PAID']),
@@ -73,12 +73,12 @@ export default async function AssetPaymentsPage({ params }: Props) {
 
   const rows = (payments ?? []).filter(p => p.charge_type === 'RENT' || p.charge_type == null)
 
-  // Outstanding total per tenant
-  const outstandingByTenant = new Map<string, number>()
+  // Outstanding total per lease (independent units under one tenant stay separate)
+  const outstandingByLease = new Map<string, number>()
   for (const c of outstandingCharges ?? []) {
-    outstandingByTenant.set(
-      c.tenant_id,
-      (outstandingByTenant.get(c.tenant_id) ?? 0) + parseFloat(c.outstanding_amount ?? '0')
+    outstandingByLease.set(
+      c.lease_id,
+      (outstandingByLease.get(c.lease_id) ?? 0) + parseFloat(c.outstanding_amount ?? '0')
     )
   }
 
@@ -89,13 +89,13 @@ export default async function AssetPaymentsPage({ params }: Props) {
       tenant_id: l.tenant_id,
       tenant_name: l.tenant_name,
       unit_references: l.unit_references,
-      outstanding: outstandingByTenant.get(l.tenant_id) ?? 0,
+      outstanding: outstandingByLease.get(l.lease_id) ?? 0,
     }))
     .sort((a, b) => a.unit_references.localeCompare(b.unit_references, undefined, { numeric: true }))
 
   const totalReceived    = rows.reduce((s, p) => s + parseFloat(p.amount ?? '0'), 0)
   const totalUnallocated = rows.reduce((s, p) => s + parseFloat(p.unallocated_amount ?? '0'), 0)
-  const totalOutstanding = Array.from(outstandingByTenant.values()).reduce((s, v) => s + v, 0)
+  const totalOutstanding = Array.from(outstandingByLease.values()).reduce((s, v) => s + v, 0)
 
   return (
     <div className="p-6 md:p-10 max-w-7xl">

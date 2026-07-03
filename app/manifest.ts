@@ -2,15 +2,16 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'CPMS — Commercial Portfolio Operating System',
-    short_name: 'CPMS',
+    name: 'Opera — Commercial Property Management',
+    short_name: 'Opera',
     description: '2i Investments — Commercial Property Management',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f8fafc',
-    theme_color: '#2563eb',
+    background_color: '#0d1b2a',
+    theme_color: '#0d1b2a',
     icons: [
-      { src: '/icon', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/Opera%20Logo.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/Opera%20Logo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   }
 }

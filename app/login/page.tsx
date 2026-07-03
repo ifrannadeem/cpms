@@ -35,12 +35,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="h-9 w-9 rounded-lg bg-blue-600 flex items-center justify-center">
-            <Building2 className="h-5 w-5 text-white" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/Opera%20Logo.png" alt="Opera" className="h-10 w-10 rounded-lg object-cover" />
           <div>
-            <div className="text-slate-900 font-semibold leading-tight">CPMS</div>
-            <div className="text-slate-400 text-xs leading-tight">Portfolio Operating System</div>
+            <div className="text-slate-900 font-semibold leading-tight">Opera</div>
+            <div className="text-slate-400 text-xs leading-tight">Property Management</div>
           </div>
         </div>
 

@@ -30,7 +30,7 @@ export interface RentIncomeData {
 
 export async function buildRentIncomeWorkbook(data: RentIncomeData): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'CPMS'
+  wb.creator = 'Opera'
   wb.created = new Date()
   const ws = wb.addWorksheet('Rent Income', {
     views: [{ state: 'frozen', ySplit: 5 }],
@@ -234,7 +234,7 @@ export async function computeVatMatrix(assetId: string, year: number): Promise<V
 
 export async function buildVatWorkbook(matrix: VatMatrix): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'CPMS'
+  wb.creator = 'Opera'
   wb.created = new Date()
   const ws = wb.addWorksheet('VAT - Rent', {
     views: [{ state: 'frozen', xSplit: 2, ySplit: 7 }],

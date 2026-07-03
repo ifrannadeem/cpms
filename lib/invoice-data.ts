@@ -165,9 +165,13 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
     if (!entity) throw new Error(`No issuing entity configured for asset ${c.asset_id}`)
     const asset = assetById.get(c.asset_id)
     const tenant = tenantById.get(c.tenant_id)
-    const refs = unitsByLease.get(c.lease_id) ?? (c.unit_reference ? [c.unit_reference] : [])
     const kind: InvoiceData['kind'] =
       c.charge_type === 'RENT' ? 'RENT' : c.charge_type === 'ELECTRIC' ? 'ELECTRIC' : 'OTHER'
+    // Rent for merged units is one invoice across the combined premises; electric is billed per
+    // sub-meter, so each electric invoice is labelled by its own unit (keeps ZIP filenames distinct).
+    const refs = kind === 'ELECTRIC'
+      ? (c.unit_reference ? [c.unit_reference] : (unitsByLease.get(c.lease_id) ?? []))
+      : (unitsByLease.get(c.lease_id) ?? (c.unit_reference ? [c.unit_reference] : []))
 
     const gross = parseFloat(c.gross_amount ?? '0')
     const paid  = parseFloat(c.payment_amount ?? '0')

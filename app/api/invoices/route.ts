@@ -72,9 +72,14 @@ export async function GET(req: NextRequest) {
     // ZIP: one correctly-named PDF per invoice, ready to file into tenant folders
     if (format === 'zip') {
       const zip = new JSZip()
+      const used = new Map<string, number>()
       for (const inv of invoices) {
+        let name = invoiceFileName(inv)
+        const seen = used.get(name) ?? 0
+        used.set(name, seen + 1)
+        if (seen > 0) name = name.replace(/\.pdf$/i, ` (${seen + 1}).pdf`)  // never overwrite a same-named invoice
         const onePdf = await renderInvoicesPdf([inv])
-        zip.file(invoiceFileName(inv), new Uint8Array(onePdf))
+        zip.file(name, new Uint8Array(onePdf))
       }
       const zipBuf = await zip.generateAsync({ type: 'uint8array' })
       const yymm = (month ?? '').slice(2, 4) + (month ?? '').slice(5, 7)

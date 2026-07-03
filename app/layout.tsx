@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/sidebar"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "CPMS — Commercial Portfolio Operating System",
+  title: "Opera — Property Management",
   description: "2i Investments — Commercial Property Management",
 }
 
