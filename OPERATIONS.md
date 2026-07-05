@@ -23,11 +23,15 @@ _Last updated 2026-07-04 as part of the due-diligence remediation._
 The project stays on the Supabase Free plan (decision 2026-07-05), which has no
 automated backups. Instead:
 
-- **Data:** `npm run backup` exports every CPMS table to `Backups/YYYY-MM-DD/*.json`
-  with a row-count manifest. Run it **weekly** (calendar reminder) and **always
-  immediately before an invoicing run or bulk change**. Copy the dated folder
-  somewhere off this machine — it contains tenant personal data, so treat it like
-  the ledger itself. `Backups/` is git-ignored.
+- **Data (either way, same export):**
+  - In the app: **Settings → Download backup** — ZIP of every table as JSON plus a
+    row-count manifest; works from any device.
+  - Offline fallback: `npm run backup` writes the same export to
+    `Backups/YYYY-MM-DD/` on this machine (`Backups/` is git-ignored).
+
+  Take one **weekly** and **always immediately before an invoicing run or bulk
+  change**, and store it off this machine — it contains tenant personal data, so
+  treat it like the ledger itself.
 - **Structure:** already in git (`supabase/schema/` + `supabase/migrations/`).
 - **Restore:** rebuild schema from the repo, then insert each table's JSON in the
   order listed in `scripts/backup.mjs` (parents before children).

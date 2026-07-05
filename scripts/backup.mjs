@@ -31,6 +31,8 @@ if (!url || !key) {
 const supabase = createClient(url, key, { auth: { persistSession: false } })
 
 // Insert order for restore: parents before children.
+// KEEP IN SYNC with lib/backup-tables.ts (the Settings -> Download backup button).
+// tests/backup-tables.test.ts fails if the lists drift.
 const TABLES = [
   'document_templates',
   'portfolios',

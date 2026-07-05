@@ -2,15 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, FileText, Building2, FileSpreadsheet, LogOut } from 'lucide-react'
+import { LayoutDashboard, FileText, Building2, FileSpreadsheet, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase-browser'
 import { GlobalSearch } from '@/components/global-search'
 
 const navigation = [
-  { name: 'Dashboard',      href: '/',        icon: LayoutDashboard },
-  { name: 'Lease Register', href: '/leases',  icon: FileText },
-  { name: 'Reports',        href: '/reports', icon: FileSpreadsheet },
+  { name: 'Dashboard',      href: '/',         icon: LayoutDashboard },
+  { name: 'Lease Register', href: '/leases',   icon: FileText },
+  { name: 'Reports',        href: '/reports',  icon: FileSpreadsheet },
+  { name: 'Settings',       href: '/settings', icon: Settings },
 ]
 
 const assets = [
