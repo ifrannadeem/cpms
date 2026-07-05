@@ -4,19 +4,17 @@ _Last updated 2026-07-04 as part of the due-diligence remediation._
 
 ## Owner actions still required (in priority order)
 
-1. **Review + apply one security-hardening migration:**
-   `supabase/migrations/20260705100000_view_invoker_and_anon_revoke.sql`. All four
-   remediation migrations from 2026-07-04 are applied and verified (rent-roll fix,
-   deterministic units, invoice references, nightly cron). This last one flips CPMS
-   views to caller-rights and revokes the anon key's dormant full table grants —
-   no user-facing change, CPMS objects only. Apply via SQL Editor, or tell the
-   assistant explicitly to apply it.
-2. **Enrol MFA for both users** (Supabase Auth supports TOTP on the Free plan).
-3. **Weekly backup:** run `npm run backup` (see Backups section below) and copy the
-   dated folder off this machine.
-4. **Vercel:** confirm the plan allows a 60s function duration (`/api/invoices` sets
+1. **MFA on the dashboard accounts** (Supabase, GitHub, Vercel — account settings,
+   one-time; browsers stay trusted so prompts are rare). Owner to-do as of
+   2026-07-05. In-app MFA consciously skipped (two trusted users, sign-ups off).
+2. **Weekly backup:** Settings → Download backup in the app (or `npm run backup`),
+   stored off-device. First one taken 2026-07-05.
+3. **Vercel:** confirm the plan allows a 60s function duration (`/api/invoices` sets
    `maxDuration = 60` for full-month ZIP packs). Consider enabling a log drain or
    Sentry so query failures (now thrown, no longer silent) are recorded somewhere.
+
+All five remediation migrations (2026-07-04/05) are applied and verified — see
+supabase/README.md for the record.
 
 ## Backups (Free plan — manual, one command)
 

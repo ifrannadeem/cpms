@@ -38,10 +38,9 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 | `20260704120100_deterministic_unit_and_search_path.sql` | Charge generation picks the lowest unit reference (was arbitrary); pins `search_path` on CPMS functions | **APPLIED 2026-07-05**, verified |
 | `20260704120200_invoice_reference_stamping.sql` | Adds `charge_records.invoice_reference` + exposes it in `v_charge_ledger`; app stamps it on first render of an issued invoice | **APPLIED 2026-07-05**, verified |
 | `20260704120300_schedule_cpms_maintenance_jobs.sql` | Daily pg_cron: `fn_update_arrears` (02:15) and `fn_refresh_lease_states` (02:25) | **APPLIED 2026-07-05**, both jobs active |
-| `20260705100000_view_invoker_and_anon_revoke.sql` | CPMS views run with caller rights (clears 13 SECURITY DEFINER advisor errors); revokes anon's dormant full table grants (currently blocked only by RLS) | **PENDING owner review** — CPMS objects only, mgmt untouched; no user-facing change |
+| `20260705100000_view_invoker_and_anon_revoke.sql` | CPMS views run with caller rights (clears 13 SECURITY DEFINER advisor errors); revokes anon's dormant full table grants | **APPLIED 2026-07-05**, verified (13 invoker views, 0 anon grants, app queries intact) |
 
-To apply the pending one: Supabase dashboard → SQL Editor → paste the file's contents →
-Run — or explicitly approve the assistant's `apply_migration` call in a session.
+All migrations to date are applied. New DB changes: write the file here first, then apply.
 
 ## Shared project — read before touching anything
 
