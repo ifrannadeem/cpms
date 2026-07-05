@@ -46,3 +46,6 @@ seed.sql
 *.xlsx
 *.docx
 /Archive/
+
+# data backups (tenant personal data + bank references — never commit)
+/Backups/

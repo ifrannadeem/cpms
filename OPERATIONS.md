@@ -11,16 +11,27 @@ _Last updated 2026-07-04 as part of the due-diligence remediation._
    views to caller-rights and revokes the anon key's dormant full table grants —
    no user-facing change, CPMS objects only. Apply via SQL Editor, or tell the
    assistant explicitly to apply it.
-2. **Supabase dashboard settings** (5 minutes, Authentication section):
-   - Enable leaked-password protection (HaveIBeenPwned check).
-   - Enable MFA for both users.
-3. **Verify backups:** Supabase → Database → Backups. Confirm the plan includes daily
-   backups (enable PITR if offered), and do one test restore to a scratch project.
-   The `supabase/schema/` capture makes structure recoverable; data recovery is only
-   as good as these backups.
+2. **Enrol MFA for both users** (Supabase Auth supports TOTP on the Free plan).
+3. **Weekly backup:** run `npm run backup` (see Backups section below) and copy the
+   dated folder off this machine.
 4. **Vercel:** confirm the plan allows a 60s function duration (`/api/invoices` sets
    `maxDuration = 60` for full-month ZIP packs). Consider enabling a log drain or
    Sentry so query failures (now thrown, no longer silent) are recorded somewhere.
+
+## Backups (Free plan — manual, one command)
+
+The project stays on the Supabase Free plan (decision 2026-07-05), which has no
+automated backups. Instead:
+
+- **Data:** `npm run backup` exports every CPMS table to `Backups/YYYY-MM-DD/*.json`
+  with a row-count manifest. Run it **weekly** (calendar reminder) and **always
+  immediately before an invoicing run or bulk change**. Copy the dated folder
+  somewhere off this machine — it contains tenant personal data, so treat it like
+  the ledger itself. `Backups/` is git-ignored.
+- **Structure:** already in git (`supabase/schema/` + `supabase/migrations/`).
+- **Restore:** rebuild schema from the repo, then insert each table's JSON in the
+  order listed in `scripts/backup.mjs` (parents before children).
+- First backup taken and verified 2026-07-05 (28 tables).
 
 ## Decisions on record (2026-07-05)
 
@@ -28,6 +39,10 @@ _Last updated 2026-07-04 as part of the due-diligence remediation._
   annual/12; the leases that were QUARTERLY/ANNUAL (One Below, Mencap, Swarco,
   Daahqan/Unit 6B) have been removed from the system. If a quarterly lease is ever
   added, the generator does NOT support it — raise it before the first billing run.
+- **Supabase Free plan retained.** Leaked-password protection is Pro-only and was
+  consciously skipped: sign-ups are disabled (re-disabled 2026-07-05 after being
+  found ON), there are only trusted users, and MFA + strong unique passwords cover
+  the same risk. Backups are manual via `npm run backup` (see Backups section).
 - **One Supabase project, three distinct property apps — by design.** CPMS (`public`),
   `mgmt`, and `residential` stay in project `jkpftidophjivmaqpkuu` as separate,
   distinct systems. Standing rules that make this safe: nobody changes another app's
