@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { unitLabel as formatUnit } from '@/lib/format'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ConfirmDialog from '@/components/confirm-dialog'
@@ -25,12 +26,6 @@ function periodLabel(start: string, end: string): string {
   const s = new Date(start).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
   const e = end ? new Date(end).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
   return `${s} ${DASH} ${e}`
-}
-function formatUnit(ref: string): string {
-  if (!ref) return DASH
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const parts = ref.trim().split('-')
-  return 'Unit ' + parts[parts.length - 1]
 }
 function methodLabel(m: string | null): string {
   if (!m) return ''

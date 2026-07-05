@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { unitLabel } from '@/lib/format'
 import Link from 'next/link'
 import ElectricEntry, { type MeterRow, type CycleRead } from './electric-entry'
 import ElectricMatrix, { type MatrixMonth, type MatrixRow, type MatrixCell } from './electric-matrix'
@@ -12,13 +13,6 @@ interface Props {
 
 const POUND = String.fromCharCode(0xA3)
 const DASH  = String.fromCharCode(0x2014)
-
-function unitLabel(ref: string): string {
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const last = ref.split('-').pop() ?? ref
-  const m = last.match(/^0*(\d.*)$/)
-  return 'Unit ' + (m ? m[1] : last)
-}
 
 function gbp(n: number): string {
   return POUND + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

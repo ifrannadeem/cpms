@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { unitLabels as formatUnits } from '@/lib/format'
 import Link from 'next/link'
 import AssetTabs from '@/components/asset-tabs'
 import ChaseCell, { type ChaseAction } from './chase-cell'
@@ -124,15 +125,6 @@ export default async function AssetArrearsPage({ params }: Props) {
     b0_30: a.b0_30 + r.b0_30, b31_60: a.b31_60 + r.b31_60, b61_90: a.b61_90 + r.b61_90, b90: a.b90 + r.b90,
   }), { b0_30: 0, b31_60: 0, b61_90: 0, b90: 0 })
 
-  function formatUnits(refs: string): string {
-    return refs.split(',').map(s => {
-      const r = s.trim()
-      if (r.startsWith('SGP-I-')) return 'Suite ' + r.replace('SGP-I-', '')
-      const last = r.split('-').pop() ?? r
-      const m = last.match(/^0*(\d.*)$/)
-      return 'Unit ' + (m ? m[1] : last)
-    }).join(', ')
-  }
 
   return (
     <div className="p-6 md:p-10 max-w-6xl">

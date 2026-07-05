@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, FileText, Building2, FileSpreadsheet, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase-browser'
+import { GlobalSearch } from '@/components/global-search'
 
 const navigation = [
   { name: 'Dashboard',      href: '/',        icon: LayoutDashboard },
@@ -44,6 +45,8 @@ export function Sidebar() {
           </div>
         </div>
       </div>
+
+      <GlobalSearch />
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">

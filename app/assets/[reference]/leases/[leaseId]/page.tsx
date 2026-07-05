@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { unitLabels as formatUnit } from '@/lib/format'
 import Link from 'next/link'
 import NotesEditor from '@/components/leases/notes-editor'
 import TenantEditor, { type TenantDetails } from '@/components/leases/tenant-editor'
@@ -31,17 +32,6 @@ function fmt(v: number | string | null | undefined): string {
 function fmtDate(s: string | null | undefined): string {
   if (!s) return DASH
   return new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function formatUnit(ref: string | null | undefined): string {
-  if (!ref) return DASH
-  return ref.split(', ').map(r => {
-    if (r.startsWith('SGP-I-')) return 'Suite ' + r.replace('SGP-I-', '')
-    const parts = r.trim().split('-')
-    const last = parts[parts.length - 1]
-    const m = last.match(/^0*(\d.*)$/)
-    return 'Unit ' + (m ? m[1] : last)
-  }).join(', ')
 }
 
 function StateBadge({ state }: { state: string }) {

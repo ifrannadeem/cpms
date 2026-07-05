@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { unitLabel } from '@/lib/format'
 import Link from 'next/link'
 
 interface Props {
@@ -23,13 +24,6 @@ function fmtDate(s: string | null | undefined): string {
   if (!s) return DASH
   return new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
-function unitLabel(ref: string): string {
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const last = ref.split('-').pop() ?? ref
-  const m = last.match(/^0*(\d.*)$/)
-  return 'Unit ' + (m ? m[1] : last)
-}
-
 export default async function UnitElectricHistoryPage({ params }: Props) {
   const { reference, unit } = await params
   const unitRef = decodeURIComponent(unit)

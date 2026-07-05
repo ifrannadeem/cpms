@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { unitLabel } from '@/lib/format'
 import Link from 'next/link'
 import AssetTabs from '@/components/asset-tabs'
 
@@ -11,13 +12,6 @@ const DASH  = String.fromCharCode(0x2014)
 
 function gbp(n: number, dp = 0): string {
   return POUND + n.toLocaleString('en-GB', { minimumFractionDigits: dp, maximumFractionDigits: dp })
-}
-
-function unitLabel(ref: string): string {
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const last = ref.split('-').pop() ?? ref
-  const m = last.match(/^0*(\d.*)$/)
-  return 'Unit ' + (m ? m[1] : last)
 }
 
 const TYPE_LABEL: Record<string, string> = {

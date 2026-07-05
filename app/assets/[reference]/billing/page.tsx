@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import AssetTabs from '@/components/asset-tabs'
+import { unitLabel as formatUnit } from '@/lib/format'
 
 interface Props {
   params: Promise<{ reference: string }>
@@ -20,13 +21,6 @@ function fmt(v: number | string | null | undefined): string {
 function fmtDate(s: string | null | undefined): string {
   if (!s) return DASH
   return new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function formatUnit(ref: string | null | undefined): string {
-  if (!ref) return DASH
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const parts = ref.trim().split('-')
-  return 'Unit ' + parts[parts.length - 1]
 }
 
 function methodLabel(m: string | null | undefined): string {

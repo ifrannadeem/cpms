@@ -35,13 +35,13 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 | File | What it does | Status |
 |---|---|---|
 | `20260704120000_fix_portfolio_health_rent_roll.sql` | Dashboard rent-roll no longer counts a multi-unit lease once per unit | **APPLIED 2026-07-05**, verified |
-| `20260704120100_deterministic_unit_and_search_path.sql` | Charge generation picks the lowest unit reference (was arbitrary); pins `search_path` on CPMS functions | Pending |
-| `20260704120200_invoice_reference_stamping.sql` | Adds `charge_records.invoice_reference` + exposes it in `v_charge_ledger`; app stamps it on first render of an issued invoice | Pending |
-| `20260704120300_schedule_cpms_maintenance_jobs.sql` | Daily pg_cron: `fn_update_arrears` (02:15) and `fn_refresh_lease_states` (02:25) | Pending |
+| `20260704120100_deterministic_unit_and_search_path.sql` | Charge generation picks the lowest unit reference (was arbitrary); pins `search_path` on CPMS functions | **APPLIED 2026-07-05**, verified |
+| `20260704120200_invoice_reference_stamping.sql` | Adds `charge_records.invoice_reference` + exposes it in `v_charge_ledger`; app stamps it on first render of an issued invoice | **APPLIED 2026-07-05**, verified |
+| `20260704120300_schedule_cpms_maintenance_jobs.sql` | Daily pg_cron: `fn_update_arrears` (02:15) and `fn_refresh_lease_states` (02:25) | **APPLIED 2026-07-05**, both jobs active |
+| `20260705100000_view_invoker_and_anon_revoke.sql` | CPMS views run with caller rights (clears 13 SECURITY DEFINER advisor errors); revokes anon's dormant full table grants (currently blocked only by RLS) | **PENDING owner review** — CPMS objects only, mgmt untouched; no user-facing change |
 
-Apply pending ones in timestamp order: Supabase dashboard → SQL Editor → paste the
-file's contents → Run — or approve the assistant's `apply_migration` calls in a session.
-All three are additive/idempotent and safe with the currently deployed app.
+To apply the pending one: Supabase dashboard → SQL Editor → paste the file's contents →
+Run — or explicitly approve the assistant's `apply_migration` call in a session.
 
 ## Shared project — read before touching anything
 

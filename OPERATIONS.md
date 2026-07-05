@@ -4,12 +4,13 @@ _Last updated 2026-07-04 as part of the due-diligence remediation._
 
 ## Owner actions still required (in priority order)
 
-1. **Apply the three remaining migrations** in `supabase/migrations/` (see
-   supabase/README.md). `20260704120000` (rent-roll fix) was applied 2026-07-05 and
-   verified. Until the others land: invoice references are still computed at render
-   time, and nothing flips charges to OVERDUE automatically. To apply: Supabase
-   dashboard → SQL Editor → paste each file's contents → Run, in timestamp order —
-   or tell the assistant explicitly "apply the remaining migrations" in a session.
+1. **Review + apply one security-hardening migration:**
+   `supabase/migrations/20260705100000_view_invoker_and_anon_revoke.sql`. All four
+   remediation migrations from 2026-07-04 are applied and verified (rent-roll fix,
+   deterministic units, invoice references, nightly cron). This last one flips CPMS
+   views to caller-rights and revokes the anon key's dormant full table grants —
+   no user-facing change, CPMS objects only. Apply via SQL Editor, or tell the
+   assistant explicitly to apply it.
 2. **Supabase dashboard settings** (5 minutes, Authentication section):
    - Enable leaked-password protection (HaveIBeenPwned check).
    - Enable MFA for both users.

@@ -2,20 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getSessionUser, unauthorised } from '@/lib/auth'
 import { buildRentIncomeWorkbook, type RentRow } from '@/lib/reports'
+import { unitLabel } from '@/lib/format'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const OPEN = ['ISSUED', 'OVERDUE', 'PART_PAID']
 const ISSUED_PLUS = ['ISSUED', 'OVERDUE', 'PART_PAID', 'PAID']
-
-function unitLabel(ref: string | null | undefined): string {
-  if (!ref) return '—'
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const last = ref.split('-').pop() ?? ref
-  const m = last.match(/^0*(\d.*)$/)
-  return 'Unit ' + (m ? m[1] : last)
-}
 
 /** GET /api/reports/rent-income?assetId=...&month=YYYY-MM -> xlsx */
 export async function GET(req: NextRequest) {

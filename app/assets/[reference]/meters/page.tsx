@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { unitLabel } from '@/lib/format'
 import Link from 'next/link'
 import AssetTabs from '@/components/asset-tabs'
 import ManageMeters, { type MeterRow } from '@/components/meters/manage-meters'
@@ -8,13 +9,6 @@ interface Props {
 }
 
 const DASH = String.fromCharCode(0x2014)
-
-function unitLabel(ref: string): string {
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const last = ref.split('-').pop() ?? ref
-  const m = last.match(/^0*(\d.*)$/)
-  return 'Unit ' + (m ? m[1] : last)
-}
 
 export default async function ManageMetersPage({ params }: Props) {
   const { reference } = await params

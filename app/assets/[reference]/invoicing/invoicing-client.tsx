@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { unitLabel as formatUnit } from '@/lib/format'
 import { useRouter } from 'next/navigation'
 import ConfirmDialog from '@/components/confirm-dialog'
 import { supabase } from '@/lib/supabase-browser'
@@ -19,13 +20,6 @@ function fmt(v: number | null | undefined): string {
 
 function monthLabel(ym: string): string {
   return new Date(ym + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-}
-
-function formatUnit(ref: string): string {
-  if (!ref) return DASH
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const parts = ref.trim().split('-')
-  return 'Unit ' + parts[parts.length - 1]
 }
 
 const STATUS_BADGE: Record<string, string> = {

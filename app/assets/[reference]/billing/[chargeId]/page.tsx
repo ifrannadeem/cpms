@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { unitLabel as formatUnit } from '@/lib/format'
 import AdjustCharge from '@/components/billing/adjust-charge'
 
 interface Props {
@@ -19,12 +20,6 @@ function fmt(v: number | string | null | undefined): string {
 function fmtDate(s: string | null | undefined): string {
   if (!s) return DASH
   return new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function formatUnit(ref: string | null | undefined): string {
-  if (!ref) return DASH
-  const parts = ref.trim().split('-')
-  return 'Unit ' + parts[parts.length - 1]
 }
 
 const STATUS_BADGE: Record<string, string> = {

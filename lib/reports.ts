@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs'
+import { unitLabel } from './format'
 import { supabase } from '@/lib/supabase'
 
 const MONEY = '"£"#,##0.00'
@@ -123,14 +124,6 @@ export interface VatMatrix {
   monthTotals: Record<string, number>
   quarterTotals: number[]
   grandTotal: number
-}
-
-function unitLabel(ref: string | null | undefined): string {
-  if (!ref) return '—'
-  if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-  const last = ref.split('-').pop() ?? ref
-  const m = last.match(/^0*(\d.*)$/)
-  return 'Unit ' + (m ? m[1] : last)
 }
 
 /** The calendar month (1-12) a VAT year begins, from the stagger's first quarter-end month. */

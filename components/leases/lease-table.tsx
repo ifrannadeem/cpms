@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import Link from 'next/link'
+import { unitLabels as formatUnit } from '@/lib/format'
 import { useState, useMemo } from 'react'
 
 interface Lease {
@@ -49,14 +50,6 @@ function fmt(v: number | null | undefined): string {
 function fmtDate(s: string | null | undefined): string {
   if (!s) return DASH
   return new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function formatUnit(ref: string | null | undefined): string {
-  if (!ref) return DASH
-  return ref.split(', ').map(r => {
-    const parts = r.trim().split('-')
-    return 'Unit ' + parts[parts.length - 1]
-  }).join(', ')
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {

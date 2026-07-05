@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { unitLabels as formatUnit } from '@/lib/format'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-browser'
 
@@ -65,15 +66,6 @@ function blankRow(): RowState {
 
 function fmt(v: number): string {
   return POUND + Number(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function formatUnit(ref: string): string {
-  // "RBC-001-010, RBC-001-011" -> "Unit 010, 011"
-  const parts = ref.split(',').map(s => {
-    const bits = s.trim().split('-')
-    return bits[bits.length - 1]
-  })
-  return 'Unit ' + parts.join(', ')
 }
 
 const inputClass =
