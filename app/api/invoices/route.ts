@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getSessionUser, unauthorised } from '@/lib/auth'
 import { assembleInvoices, monthLabel, invoiceFileName } from '@/lib/invoice-data'
 import { renderInvoicesPdf } from '@/lib/invoice-pdf'
 import JSZip from 'jszip'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// A full month's invoice pack renders ~60 PDFs; default serverless limits are too tight.
+export const maxDuration = 60
 
 /**
  * GET /api/invoices?chargeId=...                                  -> single invoice PDF
@@ -13,6 +16,8 @@ export const dynamic = 'force-dynamic'
  * GET /api/invoices?assetId=...&month=YYYY-MM[&type=...]&format=zip -> ZIP of individually-named PDFs
  */
 export async function GET(req: NextRequest) {
+  if (!(await getSessionUser())) return unauthorised()
+
   const { searchParams } = new URL(req.url)
   const chargeId = searchParams.get('chargeId')
   const assetId  = searchParams.get('assetId')
@@ -31,14 +36,19 @@ export async function GET(req: NextRequest) {
       .toISOString().slice(0, 10)
 
     // Packs/zip contain ISSUED+ invoices only (never Draft/Approved/Credited/Written-off).
-    let q = supabase
-      .from('charge_records')
-      .select('charge_id, charge_type, period_start, period_end')
-      .eq('asset_id', assetId)
-      .in('status', ['ISSUED', 'OVERDUE', 'PART_PAID', 'PAID'])
-    if (type) q = q.eq('charge_type', type)
-    const { data, error } = await q
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    let data
+    try {
+      let q = supabase
+        .from('charge_records')
+        .select('charge_id, charge_type, period_start, period_end')
+        .eq('asset_id', assetId)
+        .in('status', ['ISSUED', 'OVERDUE', 'PART_PAID', 'PAID'])
+      if (type) q = q.eq('charge_type', type)
+      ;({ data } = await q)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Query failed'
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
 
     // Rent belongs to the month of period_start; electric to the month of period_end
     chargeIds = (data ?? [])
@@ -73,14 +83,22 @@ export async function GET(req: NextRequest) {
     if (format === 'zip') {
       const zip = new JSZip()
       const used = new Map<string, number>()
-      for (const inv of invoices) {
+      // Render in parallel batches — sequential rendering of a full month's pack
+      // was the slowest path in the app and risked serverless timeouts.
+      const BATCH = 8
+      const pdfs: Uint8Array[] = []
+      for (let i = 0; i < invoices.length; i += BATCH) {
+        const batch = invoices.slice(i, i + BATCH)
+        const rendered = await Promise.all(batch.map(inv => renderInvoicesPdf([inv])))
+        for (const buf of rendered) pdfs.push(new Uint8Array(buf))
+      }
+      invoices.forEach((inv, i) => {
         let name = invoiceFileName(inv)
         const seen = used.get(name) ?? 0
         used.set(name, seen + 1)
         if (seen > 0) name = name.replace(/\.pdf$/i, ` (${seen + 1}).pdf`)  // never overwrite a same-named invoice
-        const onePdf = await renderInvoicesPdf([inv])
-        zip.file(name, new Uint8Array(onePdf))
-      }
+        zip.file(name, pdfs[i])
+      })
       const zipBuf = await zip.generateAsync({ type: 'uint8array' })
       const yymm = (month ?? '').slice(2, 4) + (month ?? '').slice(5, 7)
       const typeLabel = type === 'ELECTRIC' ? 'Electric' : type === 'RENT' ? 'Rent' : 'All'

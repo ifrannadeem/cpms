@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getSessionUser, unauthorised } from '@/lib/auth'
 import { buildRentIncomeWorkbook, type RentRow } from '@/lib/reports'
 
 export const runtime = 'nodejs'
@@ -18,6 +19,8 @@ function unitLabel(ref: string | null | undefined): string {
 
 /** GET /api/reports/rent-income?assetId=...&month=YYYY-MM -> xlsx */
 export async function GET(req: NextRequest) {
+  if (!(await getSessionUser())) return unauthorised()
+
   const { searchParams } = new URL(req.url)
   const assetId = searchParams.get('assetId')
   const month = searchParams.get('month')

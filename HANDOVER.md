@@ -1,3 +1,7 @@
+> **HISTORICAL DOCUMENT (June 2026) — no longer accurate.** The file tree, function
+> list and "not done" sections below predate auth, RLS, payments, electric billing,
+> invoicing and reports. Current truth: **ARCHITECTURE.md** and **OPERATIONS.md**.
+
 # Commercial Portfolio Operating System — Development Handover
 **Prepared for:** New development session  
 **Date:** June 2026  

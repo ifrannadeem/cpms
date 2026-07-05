@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getSessionUser, unauthorised } from '@/lib/auth'
 import { computeVatMatrix, buildVatWorkbook, currentVatYear } from '@/lib/reports'
 
 export const runtime = 'nodejs'
@@ -7,6 +8,8 @@ export const dynamic = 'force-dynamic'
 
 /** GET /api/reports/vat?assetId=...&year=YYYY  (year optional) -> xlsx (rent VAT by unit/month/quarter) */
 export async function GET(req: NextRequest) {
+  if (!(await getSessionUser())) return unauthorised()
+
   const { searchParams } = new URL(req.url)
   const assetId = searchParams.get('assetId')
   if (!assetId) return NextResponse.json({ error: 'Provide assetId' }, { status: 400 })

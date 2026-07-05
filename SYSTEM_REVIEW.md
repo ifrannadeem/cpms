@@ -1,3 +1,7 @@
+> **HISTORICAL DOCUMENT (June 2026).** Several items below have since been addressed
+> (auth + RLS, payment model, meter admin, adjust-issued-invoice). Current truth:
+> **ARCHITECTURE.md** and **OPERATIONS.md**.
+
 # CPMS — Independent System Review
 **Prepared by:** Five Agent Council session
 **Date:** June 2026

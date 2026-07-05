@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import LeaseRegisterClient from '@/components/leases/lease-register-client'
 
-export const revalidate = 300
+// Always render live (was ISR with a 5-minute lag; stale after edits).
+export const dynamic = 'force-dynamic'
 
 export default async function LeasesPage() {
   const [{ data: leases }, { data: assets }] = await Promise.all([

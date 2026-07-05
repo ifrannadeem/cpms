@@ -3,7 +3,9 @@ import { PortfolioTiles } from "@/components/dashboard/portfolio-tiles"
 import { AlertsPanel } from "@/components/dashboard/alerts-panel"
 import type { PortfolioHealth, LeaseAlert } from "@/lib/types"
 
-export const revalidate = 300
+// Always render live: this page drives chasing/payment decisions, and ISR meant
+// figures could lag mutations by up to 5 minutes (router.refresh() does not bust ISR).
+export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
   const [

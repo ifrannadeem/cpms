@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase, supabaseUnchecked } from './supabase'
 
 export interface IssuingEntity {
   entity_name: string
@@ -218,7 +218,9 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
 
     return {
       kind,
-      reference: buildReference(c.charge_type, c.period_start, c.period_end, refs),
+      // Issued invoices render from the stamped reference so the document never
+      // changes if a unit is ever renumbered; drafts still compute live.
+      reference: c.invoice_reference ?? buildReference(c.charge_type, c.period_start, c.period_end, refs),
       invoiceDate: c.issued_date ?? new Date().toISOString().slice(0, 10),
       entity: entity as IssuingEntity,
       tenantName: c.tenant_name,
@@ -237,6 +239,27 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
       electric,
     }
   })
+
+  // Stamp the reference onto issued charges on first render so the document is
+  // stable from then on (council review 4.2). Best-effort: rendering must not fail
+  // if the invoice_reference column has not been migrated yet, so errors are logged
+  // and ignored. `.is('invoice_reference', null)` makes concurrent stamps idempotent.
+  const ISSUED_PLUS = new Set(['ISSUED', 'OVERDUE', 'PART_PAID', 'PAID'])
+  const toStamp = rows
+    .map((c, i) => ({ c, ref: invoices[i].reference }))
+    .filter(({ c }) => ISSUED_PLUS.has(c.status) && !c.invoice_reference)
+  if (toStamp.length > 0) {
+    await Promise.all(
+      toStamp.map(async ({ c, ref }) => {
+        const { error } = await supabaseUnchecked
+          .from('charge_records')
+          .update({ invoice_reference: ref })
+          .eq('charge_id', c.charge_id)
+          .is('invoice_reference', null)
+        if (error) console.warn(`invoice_reference stamp skipped for ${c.charge_id}: ${error.message}`)
+      }),
+    )
+  }
 
   invoices.sort((a, b) => a.reference.localeCompare(b.reference, undefined, { numeric: true }))
   return invoices
