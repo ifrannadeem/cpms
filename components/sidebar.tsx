@@ -87,6 +87,7 @@ export function Sidebar() {
               { label: 'Billing',             href: `${href}/billing`,             exact: false },
               { label: 'Rent: Invoicing',     href: `${href}/invoicing`,           exact: false, group: 'rent' },
               { label: 'Rent: Payments',      href: `${href}/payments`,            exact: false, group: 'rent' },
+              { label: 'Rent: Collection',    href: `${href}/rent-collection`,     exact: false, group: 'rent' },
               { label: 'Meter Readings',      href: `${href}/electric`,            exact: false, group: 'electric' },
               { label: 'Electric: Invoicing', href: `${href}/invoicing-electric`,  exact: false, group: 'electric' },
               { label: 'Electric: Payments',  href: `${href}/payments-electric`,   exact: false, group: 'electric' },

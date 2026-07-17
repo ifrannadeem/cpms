@@ -8,6 +8,7 @@ const TABS: { key: string; label: string; path: string; group?: Group }[] = [
   { key: 'billing', label: 'Billing', path: '/billing' },
   { key: 'invoicing', label: 'Rent: Invoicing', path: '/invoicing', group: 'rent' },
   { key: 'payments', label: 'Rent: Payments', path: '/payments', group: 'rent' },
+  { key: 'rent-collection', label: 'Rent: Collection', path: '/rent-collection', group: 'rent' },
   { key: 'electric', label: 'Meter Readings', path: '/electric', group: 'electric' },
   { key: 'invoicing-electric', label: 'Electric: Invoicing', path: '/invoicing-electric', group: 'electric' },
   { key: 'payments-electric', label: 'Electric: Payments', path: '/payments-electric', group: 'electric' },
