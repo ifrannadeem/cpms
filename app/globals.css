@@ -1,2 +1,9 @@
 @import "tailwindcss";
 body { font-family: Arial, Helvetica, sans-serif; }
+
+/* Print: wide ledgers print landscape with colour preserved */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  body { background: white; }
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

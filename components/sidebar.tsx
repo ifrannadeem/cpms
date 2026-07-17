@@ -34,7 +34,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-60 bg-slate-900 flex flex-col shrink-0 h-screen overflow-y-auto">
+    <aside className="w-60 bg-slate-900 flex flex-col shrink-0 h-screen overflow-y-auto print:hidden">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-slate-700/60 shrink-0">
         <div className="flex items-center gap-3">
