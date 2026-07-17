@@ -10,6 +10,9 @@ import { unitLabels } from '@/lib/format'
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+/** RENT anchors to the invoice month (period_start); ELECTRIC to the reading-cycle end (period_end). */
+export type CollectionType = 'RENT' | 'ELECTRIC'
+
 const CANCELLED = new Set(['CREDITED', 'WRITTEN_OFF'])
 
 export interface MatrixCell {
@@ -31,6 +34,7 @@ export interface MatrixRow {
 export interface RentCollectionData {
   assetName: string
   year: number
+  type: CollectionType
   rows: MatrixRow[]
   monthlyTotals: number[]
   cumulative: number[]
@@ -49,15 +53,17 @@ export async function buildRentCollectionData(
   assetReference: string,
   assetName: string,
   year: number,
+  type: CollectionType = 'RENT',
 ): Promise<RentCollectionData> {
+  const anchor = type === 'ELECTRIC' ? 'period_end' : 'period_start'
   const [{ data: charges }, { data: leaseInfo }] = await Promise.all([
     supabase
       .from('v_charge_ledger')
-      .select('lease_id, unit_reference, tenant_name, period_start, gross_amount, payment_amount, status')
+      .select('lease_id, unit_reference, tenant_name, period_start, period_end, gross_amount, payment_amount, status')
       .eq('asset_id', assetId)
-      .eq('charge_type', 'RENT')
-      .gte('period_start', `${year}-01-01`)
-      .lt('period_start', `${year + 1}-01-01`),
+      .eq('charge_type', type)
+      .gte(anchor, `${year}-01-01`)
+      .lt(anchor, `${year + 1}-01-01`),
     supabase
       .from('v_lease_history')
       .select('lease_id, unit_references, tenant_name, trading_name, lease_state')
@@ -82,7 +88,7 @@ export async function buildRentCollectionData(
       }
       rowsByLease.set(c.lease_id, row)
     }
-    const m = new Date(c.period_start).getMonth()
+    const m = new Date(type === 'ELECTRIC' ? c.period_end : c.period_start).getMonth()
     const billed = parseFloat(c.gross_amount ?? '0')
     const received = CANCELLED.has(c.status) ? 0 : parseFloat(c.payment_amount ?? '0')
     const cell = row.cells[m] ?? { billed: 0, received: 0, status: c.status }
@@ -112,7 +118,7 @@ export async function buildRentCollectionData(
   const yearBilled = rows.reduce((s, r) =>
     s + r.cells.reduce((cs, c) => cs + (c && !CANCELLED.has(c.status) ? c.billed : 0), 0), 0)
 
-  return { assetName, year, rows, monthlyTotals, cumulative, payerCounts, rentRoll, yearBilled, yearReceived }
+  return { assetName, year, type, rows, monthlyTotals, cumulative, payerCounts, rentRoll, yearBilled, yearReceived }
 }
 
 // ---------- Excel export ----------
@@ -127,10 +133,11 @@ const RED_FILL   = 'FFFFC7CE'; const RED_FONT   = 'FF9C0006'
 const GREY_FONT  = 'FF94A3B8'
 
 export async function buildRentCollectionWorkbook(data: RentCollectionData): Promise<Uint8Array> {
+  const typeLabel = data.type === 'ELECTRIC' ? 'Electric' : 'Rent'
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Opera'
   wb.created = new Date()
-  const ws = wb.addWorksheet('Rent Collection', {
+  const ws = wb.addWorksheet(`${typeLabel} Collection`, {
     views: [{ state: 'frozen', xSplit: 3, ySplit: 4 }],
     pageSetup: { fitToPage: true, fitToWidth: 1, orientation: 'landscape' },
   })
@@ -143,7 +150,7 @@ export async function buildRentCollectionWorkbook(data: RentCollectionData): Pro
 
   const lastCol = 16 // A..P: Unit, Occupant, Rent, 12 months, Year
   ws.mergeCells(1, 1, 1, lastCol)
-  ws.getCell(1, 1).value = `${data.assetName} — Rent Collection ${data.year}`
+  ws.getCell(1, 1).value = `${data.assetName} — ${typeLabel} Collection ${data.year}`
   ws.getCell(1, 1).font = { bold: true, size: 15, color: { argb: NAVY } }
   ws.mergeCells(2, 1, 2, lastCol)
   ws.getCell(2, 1).value =
@@ -151,7 +158,7 @@ export async function buildRentCollectionWorkbook(data: RentCollectionData): Pro
   ws.getCell(2, 1).font = { size: 9, italic: true, color: { argb: GREY_FONT } }
   ws.getRow(3).height = 4
 
-  const header = ['Unit', 'Occupant', 'Rent', ...MONTHS, 'Year']
+  const header = ['Unit', 'Occupant', data.type === 'ELECTRIC' ? 'Latest' : 'Rent', ...MONTHS, 'Year']
   const hr = ws.getRow(4)
   header.forEach((h, i) => {
     const c = hr.getCell(i + 1)

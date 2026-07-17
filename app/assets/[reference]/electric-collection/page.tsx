@@ -7,7 +7,7 @@ interface Props {
   searchParams: Promise<{ year?: string }>
 }
 
-export default async function RentCollectionPage({ params, searchParams }: Props) {
+export default async function ElectricCollectionPage({ params, searchParams }: Props) {
   const { reference } = await params
   const sp = await searchParams
   const year = /^\d{4}$/.test(sp.year ?? '') ? parseInt(sp.year!, 10) : new Date().getFullYear()
@@ -33,7 +33,7 @@ export default async function RentCollectionPage({ params, searchParams }: Props
       assetId={asset.asset_id}
       assetName={asset.asset_name}
       year={year}
-      type="RENT"
+      type="ELECTRIC"
     />
   )
 }

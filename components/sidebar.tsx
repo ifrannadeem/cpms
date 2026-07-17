@@ -91,6 +91,7 @@ export function Sidebar() {
               { label: 'Meter Readings',      href: `${href}/electric`,            exact: false, group: 'electric' },
               { label: 'Electric: Invoicing', href: `${href}/invoicing-electric`,  exact: false, group: 'electric' },
               { label: 'Electric: Payments',  href: `${href}/payments-electric`,   exact: false, group: 'electric' },
+              { label: 'Electric: Collection', href: `${href}/electric-collection`, exact: false, group: 'electric' },
               { label: 'Arrears',             href: `${href}/arrears`,             exact: false },
             ]
             return (

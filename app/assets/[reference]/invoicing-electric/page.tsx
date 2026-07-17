@@ -36,6 +36,26 @@ export default async function InvoicingElectricPage({ params }: Props) {
     .eq('charge_type', 'ELECTRIC')
     .order('unit_reference', { ascending: true })
 
+  // Safety net: charges raised while a meter's billing was ON stay live after it is
+  // switched off. Nothing cancels them automatically (a final bill can be genuinely
+  // due), so any still open are flagged here for a decision.
+  const { data: offMeters } = await supabase
+    .from('meters')
+    .select('unit_id')
+    .eq('asset_id', asset.asset_id)
+    .eq('active', false)
+  const offUnitIds = new Set((offMeters ?? []).map(m => m.unit_id))
+  const { data: chargeUnits } = await supabase
+    .from('charge_records')
+    .select('charge_id, unit_id')
+    .eq('asset_id', asset.asset_id)
+    .eq('charge_type', 'ELECTRIC')
+    .in('status', ['DRAFT', 'APPROVED', 'ISSUED', 'OVERDUE', 'PART_PAID'])
+  const openOffChargeIds = new Set(
+    (chargeUnits ?? []).filter(c => offUnitIds.has(c.unit_id)).map(c => c.charge_id)
+  )
+  const billingOffOpen = (charges ?? []).filter(c => openOffChargeIds.has(c.charge_id))
+
   const electricRows = (charges ?? []).map(c => ({
     charge_id: c.charge_id as string,
     unit_reference: (c.unit_reference ?? '') as string,
@@ -72,6 +92,27 @@ export default async function InvoicingElectricPage({ params }: Props) {
           Electric drafts are created from meter readings on the Electric screen; issued charges move to Billing as amounts due.
         </p>
       </div>
+
+      {billingOffOpen.length > 0 && (
+        <div className="mb-6 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+          <p className="font-semibold mb-1">
+            {billingOffOpen.length} open invoice{billingOffOpen.length !== 1 ? 's' : ''} on meter{billingOffOpen.length !== 1 ? 's' : ''} now set to billing off
+          </p>
+          <p className="text-xs text-amber-800 mb-2">
+            These were raised while billing was on. If the tenant does not pay electric, open each one and use
+            Cancel; if it is a genuine final bill, leave it to be collected.
+          </p>
+          <ul className="text-xs space-y-0.5">
+            {billingOffOpen.map(c => (
+              <li key={c.charge_id}>
+                <Link href={`/assets/${reference}/billing/${c.charge_id}`} className="text-amber-900 font-medium underline hover:text-amber-700">
+                  {c.tenant_name} {DASH} {c.charge_label} {DASH} {String.fromCharCode(0xA3)}{Number(c.gross_amount ?? 0).toFixed(2)} ({c.status})
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <ElectricInvoicingClient
         assetId={asset.asset_id}

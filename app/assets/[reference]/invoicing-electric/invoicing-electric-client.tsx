@@ -93,10 +93,16 @@ export default function ElectricInvoicingClient({ assetId, assetReference, elect
 
   const issuedUnsent = periodRows.filter(r => !['DRAFT', 'APPROVED'].includes(r.status) && !r.sent_date)
 
-  const totals = periodRows.reduce(
+  // Cancelled / written-off invoices stay listed (audit) but are excluded from the
+  // cycle totals — they are not amounts due.
+  const liveRows = periodRows.filter(r => !['CREDITED', 'WRITTEN_OFF'].includes(r.status))
+  const totals = liveRows.reduce(
     (a, r) => ({ net: a.net + r.net_amount, vat: a.vat + r.vat_amount, gross: a.gross + r.gross_amount }),
     { net: 0, vat: 0, gross: 0 }
   )
+  const cancelledGross = periodRows
+    .filter(r => ['CREDITED', 'WRITTEN_OFF'].includes(r.status))
+    .reduce((s, r) => s + r.gross_amount, 0)
 
   async function run(label: string, fn: () => PromiseLike<RpcResult>, ok: (data: unknown) => string) {
     setBusy(label)
@@ -201,6 +207,9 @@ export default function ElectricInvoicingClient({ assetId, assetReference, elect
             <span>Net {fmt(totals.net)}</span>
             <span>VAT {fmt(totals.vat)}</span>
             <span className="font-semibold text-slate-900">Gross {fmt(totals.gross)}</span>
+            {cancelledGross > 0 && (
+              <span className="text-slate-400">(+ {fmt(cancelledGross)} cancelled, excluded)</span>
+            )}
           </div>
         </div>
 
