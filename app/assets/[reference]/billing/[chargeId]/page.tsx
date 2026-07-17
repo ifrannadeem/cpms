@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { unitLabel as formatUnit } from '@/lib/format'
 import AdjustCharge from '@/components/billing/adjust-charge'
+import CancelCharge from '@/components/billing/cancel-charge'
 
 interface Props {
   params: Promise<{ reference: string; chargeId: string }>
@@ -150,10 +151,11 @@ export default async function ChargeDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Adjust issued invoice (grace reductions, agreed changes after issue) */}
+      {/* Adjust or cancel an issued invoice */}
       {canPay && (
-        <div className="mb-6">
+        <div className="mb-6 flex flex-wrap gap-3">
           <AdjustCharge chargeId={chargeId} currentNet={parseFloat(charge.net_amount ?? '0')} />
+          <CancelCharge chargeId={chargeId} paid={parseFloat(charge.payment_amount ?? '0')} />
         </div>
       )}
 

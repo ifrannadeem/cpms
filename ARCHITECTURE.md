@@ -34,7 +34,10 @@ mutation, `router.refresh()` re-renders the server components.
 
 `fn_generate_asset_rent_charges` (DRAFT, incentive-aware, rent derived from lease) →
 approve (`fn_approve_asset_charges`) → issue (`fn_issue_asset_charges`, stamps
-`issued_date`) → optionally adjust (`fn_adjust_issued_charge`). Payments are a
+`issued_date`) → optionally adjust (`fn_adjust_issued_charge`) or cancel/write off
+(`fn_cancel_charge` → CREDITED/WRITTEN_OFF; record retained, reason logged). Terminated
+leases stay reachable via `v_lease_history` / `v_unit_history` (the register views hide
+them by design; the lease detail page and search use the history view). Payments are a
 cash-receipt journal: `fn_record_lease_payment` allocates oldest-first per lease and
 charge type into `payments` / `payment_allocations`. Arrears definition is centralised
 in `v_arrears_charges` (electric gets a month's grace; rent is overdue from the 1st).

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import LeaseTable from '@/components/leases/lease-table'
 import LetUnitForm, { type VacantUnit } from '@/components/leases/let-unit-form'
 import AssetTabs from '@/components/asset-tabs'
+import { unitLabel, unitLabels } from '@/lib/format'
 
 interface Props {
   params: Promise<{ reference: string }>
@@ -46,24 +47,26 @@ export default async function AssetLeasesPage({ params }: Props) {
       .neq('lease_state', 'TERMINATED'),
   ])
 
+  // Ended tenancies — retained for audit (v_lease_history includes terminated leases)
+  const { data: pastLeases } = await supabase
+    .from('v_lease_history')
+    .select('lease_id, lease_reference, tenant_name, trading_name, unit_references, commencement_date, termination_date, termination_reason, annual_rent')
+    .eq('asset_reference', reference)
+    .eq('lease_state', 'TERMINATED')
+    .order('termination_date', { ascending: false })
+
   const safeLeases = leases ?? []
 
   const liveLeaseIds = new Set((assetLeases ?? []).map(l => l.lease_id))
   const occupiedUnitIds = new Set(
     (assetLeaseUnits ?? []).filter(lu => liveLeaseIds.has(lu.lease_id)).map(lu => lu.unit_id)
   )
-  function vacantLabel(ref: string): string {
-    if (ref.startsWith('SGP-I-')) return 'Suite ' + ref.replace('SGP-I-', '')
-    const last = ref.split('-').pop() ?? ref
-    const m = last.match(/^0*(\d.*)$/)
-    return 'Unit ' + (m ? m[1] : last)
-  }
   const vacantUnits: VacantUnit[] = (assetUnits ?? [])
     .filter(u => u.active !== false && !occupiedUnitIds.has(u.unit_id))
     .map(u => ({
       unit_id: u.unit_id,
       unit_reference: u.unit_reference,
-      unit_label: vacantLabel(u.unit_reference),
+      unit_label: unitLabel(u.unit_reference),
       unit_type: u.unit_type,
     }))
     .sort((a, b) => a.unit_label.localeCompare(b.unit_label, undefined, { numeric: true }))
@@ -116,6 +119,56 @@ export default async function AssetLeasesPage({ params }: Props) {
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">Tenancies</h2>
         <LeaseTable leases={safeLeases} assetReference={reference} />
       </div>
+
+      {/* Past tenancies — full audit history, click through for charges/payments */}
+      {(pastLeases ?? []).length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-1">Past Tenancies</h2>
+          <p className="text-xs text-slate-400 mb-4">
+            Ended leases are retained for audit. Open one to see its full terms, charges and payment history.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="border-b border-slate-200">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Unit</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Tenant</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">From</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Ended</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Reason</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Rent (pa)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(pastLeases ?? []).map(l => (
+                  <tr key={l.lease_id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-3 py-2.5 text-slate-700">{unitLabels(l.unit_references)}</td>
+                    <td className="px-3 py-2.5">
+                      <Link href={`/assets/${reference}/leases/${l.lease_id}`} className="font-medium text-slate-800 hover:text-blue-700 hover:underline">
+                        {l.trading_name ?? l.tenant_name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
+                      {l.commencement_date ? new Date(l.commencement_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap font-medium">
+                      {l.termination_date ? new Date(l.termination_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500 capitalize">
+                      {(l.termination_reason ?? '').toLowerCase().replace(/_/g, ' ')}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-slate-600 whitespace-nowrap">
+                      {l.annual_rent != null
+                        ? String.fromCharCode(0xA3) + parseFloat(l.annual_rent).toLocaleString('en-GB', { maximumFractionDigits: 0 })
+                        : ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

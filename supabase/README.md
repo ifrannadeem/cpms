@@ -39,6 +39,7 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 | `20260704120200_invoice_reference_stamping.sql` | Adds `charge_records.invoice_reference` + exposes it in `v_charge_ledger`; app stamps it on first render of an issued invoice | **APPLIED 2026-07-05**, verified |
 | `20260704120300_schedule_cpms_maintenance_jobs.sql` | Daily pg_cron: `fn_update_arrears` (02:15) and `fn_refresh_lease_states` (02:25) | **APPLIED 2026-07-05**, both jobs active |
 | `20260705100000_view_invoker_and_anon_revoke.sql` | CPMS views run with caller rights (clears 13 SECURITY DEFINER advisor errors); revokes anon's dormant full table grants | **APPLIED 2026-07-05**, verified (13 invoker views, 0 anon grants, app queries intact) |
+| `20260705120000_cancel_charge_and_lease_history.sql` | fn_cancel_charge (credit / write off an issued invoice, mandatory reason, activity-logged); v_lease_history + v_unit_history so terminated tenancies stay reachable for audit | **APPLIED 2026-07-05**, verified against Unit 7 Peartree |
 
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 

@@ -95,10 +95,12 @@ export default async function TenancyPage({ params }: Props) {
   const { reference, leaseId } = await params
 
   const [{ data: lease }, { data: leaseRow }, { data: incentives }, { data: charges }] = await Promise.all([
-    supabase.from('v_lease_register').select('*').eq('lease_id', leaseId).single(),
+    // v_lease_history, not v_lease_register: terminated tenancies must stay
+    // viewable for audit (the register hides them by design).
+    supabase.from('v_lease_history').select('*').eq('lease_id', leaseId).single(),
     supabase
       .from('leases')
-      .select('lease_type, lease_state, permitted_use, original_start_date, commencement_date, expiry_date, annual_rent, billing_frequency, billing_day, next_rent_review_date, rent_review_basis, rent_review_frequency_months, last_review_date, break_clause_date, break_clause_party, insurance_recharge, deposit_amount, deposit_type, document_id, tenant_id')
+      .select('lease_type, lease_state, termination_date, termination_reason, permitted_use, original_start_date, commencement_date, expiry_date, annual_rent, billing_frequency, billing_day, next_rent_review_date, rent_review_basis, rent_review_frequency_months, last_review_date, break_clause_date, break_clause_party, insurance_recharge, deposit_amount, deposit_type, document_id, tenant_id')
       .eq('lease_id', leaseId)
       .single(),
     supabase
@@ -282,6 +284,16 @@ export default async function TenancyPage({ params }: Props) {
         </div>
         <StateBadge state={leaseRow.lease_state ?? 'ACTIVE'} />
       </div>
+
+      {/* Terminated tenancy: historical record banner */}
+      {leaseRow.lease_state === 'TERMINATED' && (
+        <div className="mb-6 px-4 py-3 rounded-lg bg-slate-100 border border-slate-300 text-sm text-slate-700">
+          <span className="font-semibold">Ended tenancy.</span>{' '}
+          This lease was terminated on {fmtDate(leaseRow.termination_date)}
+          {leaseRow.termination_reason ? ` (${String(leaseRow.termination_reason).toLowerCase().replace(/_/g, ' ')})` : ''}.
+          The record is retained for audit; charges and payments below are the full history.
+        </div>
+      )}
 
       {/* Current position */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

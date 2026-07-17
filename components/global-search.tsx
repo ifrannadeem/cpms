@@ -13,6 +13,7 @@ interface Hit {
   unit_references: string | null
   asset_reference: string
   asset_name: string
+  lease_state: string
 }
 
 /**
@@ -38,10 +39,12 @@ export function GlobalSearch() {
     const t = setTimeout(async () => {
       setBusy(true)
       const pat = `%${term}%`
+      // v_lease_history so ended tenancies are findable too (marked "ended")
       const { data, error } = await supabase
-        .from('v_lease_register')
-        .select('lease_id, tenant_name, trading_name, unit_references, asset_reference, asset_name')
+        .from('v_lease_history')
+        .select('lease_id, tenant_name, trading_name, unit_references, asset_reference, asset_name, lease_state')
         .or(`tenant_name.ilike.${pat},trading_name.ilike.${pat},unit_references.ilike.${pat}`)
+        .order('lease_state', { ascending: true })
         .limit(8)
       setBusy(false)
       if (!error) {
@@ -93,6 +96,9 @@ export function GlobalSearch() {
               >
                 <span className="block text-xs font-medium text-slate-100 truncate">
                   {h.trading_name ?? h.tenant_name}
+                  {h.lease_state === 'TERMINATED' && (
+                    <span className="ml-1.5 text-[10px] font-normal text-amber-400">(ended)</span>
+                  )}
                 </span>
                 <span className="block text-[11px] text-slate-400 truncate">
                   {unitLabels(h.unit_references)} · {h.asset_name}
