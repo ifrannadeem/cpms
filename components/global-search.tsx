@@ -32,9 +32,9 @@ export function GlobalSearch() {
     // PostgREST or() syntax uses , ( ) as structure; strip them plus % from input
     const term = q.trim().replace(/[,()%]/g, '')
     if (term.length < 2) {
-      setHits([])
-      setOpen(false)
-      return
+      // Deferred like the search itself, so the effect never sets state synchronously
+      const t = setTimeout(() => { setHits([]); setOpen(false) }, 0)
+      return () => clearTimeout(t)
     }
     const t = setTimeout(async () => {
       setBusy(true)

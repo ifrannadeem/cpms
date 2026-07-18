@@ -146,7 +146,7 @@ export default async function AssetArrearsPage({ params }: Props) {
         Rent unpaid from <span className="font-medium">before {monthLabel}</span>, plus electric
         unpaid for <span className="font-medium">more than one billing cycle</span>. Current bills
         are excluded {DASH} tenants normally pay during the course of the month, and the latest
-        electric invoice always relates to the prior month's usage.
+        electric invoice always relates to the prior month{String.fromCharCode(0x2019)}s usage.
       </p>
 
       {/* Summary */}

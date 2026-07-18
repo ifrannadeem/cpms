@@ -17,7 +17,6 @@ export interface GridRow {
 }
 
 interface Props {
-  assetId: string
   rows: GridRow[]
   chargeType: 'RENT' | 'ELECTRIC'
 }
@@ -71,7 +70,7 @@ function fmt(v: number): string {
 const inputClass =
   'w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300'
 
-export default function PaymentGrid({ assetId, rows, chargeType }: Props) {
+export default function PaymentGrid({ rows, chargeType }: Props) {
   const router = useRouter()
   const [states, setStates] = useState<Record<string, RowState>>(
     () => Object.fromEntries(rows.map(r => [r.lease_id, blankRow()]))

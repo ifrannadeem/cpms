@@ -143,7 +143,7 @@ export default async function AssetElectricPaymentsPage({ params }: Props) {
       {/* Payment entry grid */}
       <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Record Electric Payments</h2>
       {gridRowsUnique.length > 0 ? (
-        <PaymentGrid assetId={asset.asset_id} rows={gridRowsUnique} chargeType="ELECTRIC" />
+        <PaymentGrid rows={gridRowsUnique} chargeType="ELECTRIC" />
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400 mb-6">
           No outstanding electric charges.

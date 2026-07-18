@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-browser'
-import { Building2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()

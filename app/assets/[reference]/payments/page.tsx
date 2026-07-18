@@ -147,7 +147,7 @@ export default async function AssetPaymentsPage({ params }: Props) {
       <p className="text-xs text-slate-400 mb-3">
         Payments here settle rent charges only, oldest month first. Electric payments are recorded on the Electric: Payments tab.
       </p>
-      <PaymentGrid assetId={asset.asset_id} rows={gridRows} chargeType="RENT" />
+      <PaymentGrid rows={gridRows} chargeType="RENT" />
 
       {/* Receipt history */}
       <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Receipt History</h2>

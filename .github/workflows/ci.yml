@@ -19,7 +19,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22+: supabase-js needs native WebSocket, absent in Node 20 (CI run #6 failure)
+          node-version: 22
           cache: npm
 
       - name: Install
