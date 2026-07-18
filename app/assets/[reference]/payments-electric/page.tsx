@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import PaymentGrid, { type GridRow } from '../payments/payment-entry'
 import AssetTabs from '@/components/asset-tabs'
+import ReversePayment from '@/components/payments/reverse-payment'
+import { unitLabels } from '@/lib/format'
 
 interface Props {
   params: Promise<{ reference: string }>
@@ -155,17 +157,20 @@ export default async function AssetElectricPaymentsPage({ params }: Props) {
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Payment Date</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Unit</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Tenant</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Method</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Allocated To</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Notes</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map(p => (
               <tr key={p.payment_id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3 whitespace-nowrap text-slate-700">{fmtDate(p.payment_date)}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-slate-700">{unitLabels(p.unit_references)}</td>
                 <td className="px-4 py-3 text-slate-800 font-medium">{p.tenant_name}</td>
                 <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{fmt(p.amount)}</td>
                 <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{METHOD_LABEL[p.method] ?? p.method}</td>
@@ -178,6 +183,13 @@ export default async function AssetElectricPaymentsPage({ params }: Props) {
                   )}
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-500">{p.notes ?? DASH}</td>
+                <td className="px-4 py-3 text-right align-top">
+                  <ReversePayment
+                    paymentId={p.payment_id}
+                    amount={parseFloat(p.amount ?? '0')}
+                    tenantName={p.tenant_name ?? ''}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
