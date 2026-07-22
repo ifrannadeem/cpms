@@ -42,6 +42,7 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 | `20260705120000_cancel_charge_and_lease_history.sql` | fn_cancel_charge (credit / write off an issued invoice, mandatory reason, activity-logged); v_lease_history + v_unit_history so terminated tenancies stay reachable for audit | **APPLIED 2026-07-05**, verified against Unit 7 Peartree |
 | `20260718090000_reverse_payment_and_register_units.sql` | fn_reverse_payment (unwind a wrongly recorded receipt: allocations undone, charge statuses restored, reversal logged with reason); v_payment_register gains unit_references | **APPLIED 2026-07-18**, verified against RBC register |
 | `20260722100000_invoice_recipients.sql` | tenants.invoice_email_to (comma-separated multi-recipient list for email dispatch); fn_update_tenant_details gains p_invoice_email_to | **APPLIED 2026-07-22** |
+| `20260722140000_scheduled_termination_and_prorata.sql` | fn_terminate_lease: future date = scheduled end (keeps billing) vs today/past = immediate; fn_apply_due_terminations (nightly 02:20); fn_generate_asset_rent_charges final-month pro-rata | **APPLIED 2026-07-22**. One-off data fix restored Suite 2.7 (Ambitions Personnel) to active with 17 Aug 2026 scheduled end. |
 
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 

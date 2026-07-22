@@ -52,7 +52,12 @@ verbatim thereafter (once migration `20260704120200` is applied).
 - **All billing is monthly (annual/12) — policy, decided 2026-07-05.** The
   `billing_frequency` field exists but the generator does not respect it; the leases
   that were quarterly/annual have been removed from the system. Do not add a
-  quarterly lease without raising this first.
+  quarterly lease without raising this first. The final month of a tenancy with a
+  scheduled end date is pro-rata (days occupied inclusive of the leaving day, over
+  days in the month). Commencement mid-month is still charged in full.
+- **End Tenancy is date-aware.** A future date on End Tenancy records notice and
+  keeps the lease active and billing until then, ending it automatically on the date
+  (nightly `fn_apply_due_terminations`). Today/backdated ends immediately.
 - Periodic tenancies alert at **LOW** urgency ("accepted position") — intentional
   downgrade, June 2026.
 - Rent-free ending mid-month zeroes the whole month (no pro-rating) unless a

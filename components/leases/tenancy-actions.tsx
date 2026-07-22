@@ -112,7 +112,11 @@ export default function TenancyActions({ leaseId, assetReference, tenantName, cu
   }
 
   async function handleEnd() {
-    if (!confirm(`End ${tenantName}'s tenancy on ${end.date}?\n\nUnits become vacant and electric billing stops. The lease is kept as history.`)) return
+    const scheduled = end.date > todayISO
+    const message = scheduled
+      ? `Record notice for ${tenantName}, ending ${end.date}?\n\nThe tenancy stays active and keeps billing (final month pro-rata) until then, and ends automatically on the date.`
+      : `End ${tenantName}'s tenancy on ${end.date}?\n\nUnits become vacant and electric billing stops now. The lease is kept as history.`
+    if (!confirm(message)) return
     setSaving(true)
     setError(null)
     const { error: rpcError } = await supabase.rpc('fn_terminate_lease', {
@@ -123,6 +127,10 @@ export default function TenancyActions({ leaseId, assetReference, tenantName, cu
     setSaving(false)
     if (rpcError) {
       setError(rpcError.message)
+    } else if (scheduled) {
+      // Still an active tenancy — stay on the page and reflect the recorded notice.
+      setMode('none')
+      router.refresh()
     } else {
       router.push(`/assets/${assetReference}`)
       router.refresh()
@@ -275,6 +283,11 @@ export default function TenancyActions({ leaseId, assetReference, tenantName, cu
 
       {mode === 'end' && (
         <div className="space-y-3">
+          <p className="text-xs text-slate-500 max-w-2xl">
+            A <span className="font-medium">future date</span> records notice: the tenancy keeps billing (final month
+            pro-rata) and ends automatically on that date. <span className="font-medium">Today</span> ends it now,
+            vacating the unit and stopping electric billing.
+          </p>
           <div className="grid grid-cols-2 gap-3 max-w-md">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Termination Date</label>
