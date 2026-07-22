@@ -19,7 +19,9 @@ export interface InvoiceData {
   kind: 'RENT' | 'ELECTRIC' | 'OTHER'
   reference: string
   invoiceDate: string
+  dueDate: string
   entity: IssuingEntity
+  tenantId: string
   tenantName: string
   tenantAddress: string[]
   premisesLabel: string
@@ -222,7 +224,9 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
       // changes if a unit is ever renumbered; drafts still compute live.
       reference: c.invoice_reference ?? buildReference(c.charge_type, c.period_start, c.period_end, refs),
       invoiceDate: c.issued_date ?? new Date().toISOString().slice(0, 10),
+      dueDate: c.due_date,
       entity: entity as IssuingEntity,
+      tenantId: c.tenant_id,
       tenantName: c.tenant_name,
       tenantAddress,
       premisesLabel: premisesLabel(refs),

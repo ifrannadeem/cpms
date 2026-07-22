@@ -93,6 +93,7 @@ export function Sidebar() {
               { label: 'Electric: Payments',  href: `${href}/payments-electric`,   exact: false, group: 'electric' },
               { label: 'Electric: Collection', href: `${href}/electric-collection`, exact: false, group: 'electric' },
               { label: 'Arrears',             href: `${href}/arrears`,             exact: false },
+              { label: 'Email Invoices',      href: `${href}/dispatch`,            exact: false },
             ]
             return (
               <div key={a.ref}>

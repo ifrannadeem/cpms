@@ -60,6 +60,8 @@ describe('buildReference', () => {
 describe('invoiceFileName', () => {
   const base = {
     invoiceDate: '2026-07-01',
+    dueDate: '2026-07-01',
+    tenantId: 't1',
     entity: {} as InvoiceData['entity'],
     tenantAddress: [],
     premisesAddress: '',

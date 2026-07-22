@@ -14,6 +14,7 @@ const TABS: { key: string; label: string; path: string; group?: Group }[] = [
   { key: 'payments-electric', label: 'Electric: Payments', path: '/payments-electric', group: 'electric' },
   { key: 'electric-collection', label: 'Electric: Collection', path: '/electric-collection', group: 'electric' },
   { key: 'arrears', label: 'Arrears', path: '/arrears' },
+  { key: 'dispatch', label: 'Email Invoices', path: '/dispatch' },
 ]
 
 function tabClasses(group: Group, active: boolean): string {
