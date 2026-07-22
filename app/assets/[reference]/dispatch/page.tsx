@@ -51,14 +51,16 @@ export default async function DispatchPage({ params, searchParams }: Props) {
   const tenantIds = Array.from(new Set(invoices.map(i => i.tenantId)))
   const { data: tenants } = tenantIds.length
     ? await supabase.from('tenants')
-        .select('tenant_id, accounts_contact_email, primary_contact_email')
+        .select('tenant_id, invoice_email_to, accounts_contact_email, primary_contact_email')
         .in('tenant_id', tenantIds)
     : { data: [] }
+  // Recipients: the dedicated invoice list if set, else the accounts/primary email.
+  // Split on comma/semicolon, drop blanks and TBC placeholders.
   const emailById = new Map(
     (tenants ?? []).map(t => {
-      let e: string | null = t.accounts_contact_email || t.primary_contact_email || null
-      if (e && /tbc/i.test(e)) e = null
-      return [t.tenant_id, e]
+      const raw = t.invoice_email_to || t.accounts_contact_email || t.primary_contact_email || ''
+      const parts = raw.split(/[,;]/).map((s: string) => s.trim()).filter((s: string) => s && !/tbc/i.test(s))
+      return [t.tenant_id, parts.length ? parts.join(', ') : null]
     })
   )
 

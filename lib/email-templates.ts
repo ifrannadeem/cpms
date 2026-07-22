@@ -48,12 +48,7 @@ function greeting(contactName: string | null | undefined): string {
 }
 
 function signOff(entity: InvoiceData['entity']): string {
-  const lines = [entity.entity_name]
-  if (entity.agent_for) {
-    const principal = entity.agent_for.split(',')[0].trim()
-    if (principal) lines.push(`Managing Agents for ${principal}`)
-  }
-  return lines.join('\n')
+  return entity.entity_name
 }
 
 /** ["Suite 1.7","Suite 1.8"] -> "Suites 1.7 & 1.8"; ["Unit 6"] -> "Unit 6" */
@@ -78,7 +73,9 @@ export function buildRentEmail(opts: BuildOpts): EmailDraft {
   const detailLines: string[] = []
   for (const inv of invoices) {
     if (invoices.length > 1) detailLines.push(`${inv.premisesLabel}:`)
-    detailLines.push(`Amount due: ${gbp(inv.amountDue)}`)
+    // The invoice amount (gross), not the running outstanding — an invoice states
+    // its own value regardless of any payment already recorded.
+    detailLines.push(`Amount due: ${gbp(inv.grossAmount)}`)
     detailLines.push(`Date due: ${fmtLongDate(inv.dueDate)}`)
     detailLines.push(`Payment reference: ${inv.reference}`)
     if (invoices.length > 1) detailLines.push('')
@@ -137,7 +134,8 @@ export function buildElectricEmail(opts: BuildOpts): EmailDraft {
     blocks.push(lines.join('\n'))
   }
 
-  const totalDue = invoices.reduce((s, i) => s + i.amountDue, 0)
+  // Sum the invoice (gross) totals, matching the per-suite Totals above.
+  const totalDue = invoices.reduce((s, i) => s + i.grossAmount, 0)
 
   const body = [
     greeting(contactName),

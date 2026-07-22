@@ -17,6 +17,7 @@ export interface TenantDetails {
   accounts_contact_name: string | null
   accounts_contact_email: string | null
   accounts_contact_phone: string | null
+  invoice_email_to: string | null
   emergency_contact_name: string | null
   emergency_contact_phone: string | null
   director_name: string | null
@@ -68,6 +69,7 @@ export default function TenantEditor({ tenant }: Props) {
     accountsName: tenant.accounts_contact_name ?? '',
     accountsEmail: tenant.accounts_contact_email ?? '',
     accountsPhone: tenant.accounts_contact_phone ?? '',
+    invoiceTo: tenant.invoice_email_to ?? '',
     emergencyName: tenant.emergency_contact_name ?? '',
     emergencyPhone: tenant.emergency_contact_phone ?? '',
     director: tenant.director_name ?? '',
@@ -93,6 +95,7 @@ export default function TenantEditor({ tenant }: Props) {
       p_company_number: form.companyNumber.trim() || null,
       p_correspondence_address: form.address.trim() || null,
       p_preferred_delivery_method: form.preferredMethod || null,
+      p_invoice_email_to: form.invoiceTo.trim() || null,
     })
     setSaving(false)
     if (rpcError) {
@@ -121,6 +124,7 @@ export default function TenantEditor({ tenant }: Props) {
               <Field label="Name" value={tenant.accounts_contact_name} />
               <Field label="Phone" value={tenant.accounts_contact_phone} />
               <div className="col-span-2"><Field label="Email" value={tenant.accounts_contact_email} /></div>
+              <div className="col-span-2"><Field label="Invoice recipients (email dispatch)" value={tenant.invoice_email_to} /></div>
               <div className="col-span-2"><Field label="Preferred invoice delivery" value={methodLabel(tenant.preferred_delivery_method)} /></div>
             </div>
           </Group>
@@ -177,6 +181,12 @@ export default function TenantEditor({ tenant }: Props) {
               onChange={e => setForm({ ...form, accountsPhone: e.target.value })} className={inputClass} />
             <input type="email" placeholder="Email" value={form.accountsEmail}
               onChange={e => setForm({ ...form, accountsEmail: e.target.value })} className={`${inputClass} col-span-2`} />
+            <label className="col-span-2 text-xs text-slate-500">
+              Invoice recipients {DASH} where emailed invoices are sent
+              <input type="text" placeholder="anyone@co.com, accounts@co.com" value={form.invoiceTo}
+                onChange={e => setForm({ ...form, invoiceTo: e.target.value })} className={`${inputClass} mt-1`} />
+              <span className="block text-[11px] text-slate-400 mt-1">Separate multiple addresses with commas. If blank, the accounts email is used.</span>
+            </label>
             <label className="col-span-2 text-xs text-slate-500">
               Preferred invoice delivery
               <select value={form.preferredMethod}

@@ -129,7 +129,7 @@ export default async function TenancyPage({ params }: Props) {
   const [{ data: tenantRecord }, { data: rentProfile }, { data: leaseUnits }, { data: activity }] = await Promise.all([
     supabase
       .from('tenants')
-      .select('tenant_id, legal_name, trading_name, company_number, primary_contact_name, primary_contact_email, primary_contact_phone, accounts_contact_name, accounts_contact_email, accounts_contact_phone, emergency_contact_name, emergency_contact_phone, director_name, correspondence_address, preferred_delivery_method')
+      .select('tenant_id, legal_name, trading_name, company_number, primary_contact_name, primary_contact_email, primary_contact_phone, accounts_contact_name, accounts_contact_email, accounts_contact_phone, emergency_contact_name, emergency_contact_phone, director_name, correspondence_address, preferred_delivery_method, invoice_email_to')
       .eq('tenant_id', leaseRow.tenant_id)
       .single(),
     supabase
