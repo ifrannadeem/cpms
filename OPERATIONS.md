@@ -35,6 +35,24 @@ automated backups. Instead:
   order listed in `scripts/backup.mjs` (parents before children).
 - First backup taken and verified 2026-07-05 (28 tables).
 
+## Emailing invoices (Email Invoices tab)
+
+Per asset: review each tenant's email (rent and electric separately), then Send or
+Send all. Built from the issued invoices, so the email matches the PDF. Southgate is
+the live pilot; Rosehill follows; Peartree stays manual (WhatsApp).
+
+- **Recipients:** the tenancy's *Invoice recipients* field (comma-separated for
+  several people), else the accounts/primary email.
+- **Test vs live (env vars on Vercel):** `SMTP_USER`, `SMTP_PASS` (Gmail App
+  Password) send the mail; `DISPATCH_TEST_TO` is the test inbox. Dispatch is in
+  **test mode** — every email goes to `DISPATCH_TEST_TO`, subject prefixed `[TEST]`,
+  intended recipient named inside, and **nothing is marked as sent** — until
+  `DISPATCH_LIVE=true` is set. Going live is that single env change.
+- **Send log:** a live send stamps `sent_date` / `sent_method=EMAIL` /
+  `sent_to` on the charges, shown as "Sent" on the invoicing pages.
+- **Rotate the App Password:** revoke at myaccount.google.com/apppasswords, issue a
+  new one, update `SMTP_PASS` in Vercel, redeploy.
+
 ## Decisions on record (2026-07-05)
 
 - **Billing frequency: monthly for everyone, as policy.** The generator bills
