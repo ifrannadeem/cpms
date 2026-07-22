@@ -48,6 +48,8 @@ export default async function DispatchPage({ params, searchParams }: Props) {
     body: i.draft.body,
     attachments: i.draft.attachments,
     chargeCount: i.chargeIds.length,
+    sentDate: i.sentDate,
+    sentMethod: i.sentMethod,
   }))
 
   const tab = (t: DispatchType, label: string) => (

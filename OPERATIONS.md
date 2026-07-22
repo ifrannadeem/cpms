@@ -51,8 +51,11 @@ the live pilot; Rosehill follows; Peartree stays manual (WhatsApp).
   nothing marked sent. To add Rosehill later, append `ASSET-001`. (`DISPATCH_LIVE=true`
   forces every asset live — avoid; use the per-asset list.)
   Asset references: Rosehill `ASSET-001`, Peartree `ASSET-002`, Southgate `ASSET-003`.
-- **Send log:** a live send stamps `sent_date` / `sent_method=EMAIL` /
-  `sent_to` on the charges, shown as "Sent" on the invoicing pages.
+- **Send log & no double-send:** a live send stamps `sent_date` /
+  `sent_method=EMAIL` / `sent_to` on the charges. Already-sent tenants show a
+  green "Sent" badge; **Send all skips them** (label becomes "Send all unsent"),
+  so re-running the batch is safe. A deliberate resend is per-tenant via
+  **Resend**, which asks to confirm before emailing the tenant again.
 - **Rotate the App Password:** revoke at myaccount.google.com/apppasswords, issue a
   new one, update `SMTP_PASS` in Vercel, redeploy.
 

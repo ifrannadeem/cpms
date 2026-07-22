@@ -16,6 +16,8 @@ export interface DispatchItem {
   draft: EmailDraft
   chargeIds: string[]
   invoices: InvoiceData[]
+  sentDate: string | null
+  sentMethod: string | null
 }
 
 export interface DispatchResult {
@@ -35,7 +37,7 @@ export async function gatherDispatch(opts: {
 
   const { data: ledger } = await supabase
     .from('v_charge_ledger')
-    .select('charge_id, tenant_id, period_start, period_end, status')
+    .select('charge_id, tenant_id, period_start, period_end, status, sent_date, sent_method')
     .eq('asset_id', assetId)
     .eq('charge_type', type)
     .in('status', ISSUED)
@@ -66,10 +68,22 @@ export async function gatherDispatch(opts: {
   )
 
   const chargeIdsByTenant = new Map<string, string[]>()
+  // Sent status per tenant: the latest send across their charges in this cycle
+  // (so "Send all" can skip already-sent tenants while a single Resend stays possible).
+  const sentByTenant = new Map<string, { date: string | null; method: string | null }>()
   for (const r of monthRows) {
     const arr = chargeIdsByTenant.get(r.tenant_id) ?? []
     arr.push(r.charge_id)
     chargeIdsByTenant.set(r.tenant_id, arr)
+
+    if (r.sent_date) {
+      const cur = sentByTenant.get(r.tenant_id)
+      if (!cur?.date || r.sent_date > cur.date) {
+        sentByTenant.set(r.tenant_id, { date: r.sent_date, method: r.sent_method })
+      }
+    } else if (!sentByTenant.has(r.tenant_id)) {
+      sentByTenant.set(r.tenant_id, { date: null, method: null })
+    }
   }
 
   const invoicesByTenant = new Map<string, InvoiceData[]>()
@@ -83,7 +97,11 @@ export async function gatherDispatch(opts: {
     .map(([tid, invs]) => {
       const buildOpts = { tenantId: tid, invoices: invs, assetName, to: emailById.get(tid) ?? null }
       const draft = type === 'ELECTRIC' ? buildElectricEmail(buildOpts) : buildRentEmail(buildOpts)
-      return { tenantId: tid, draft, chargeIds: chargeIdsByTenant.get(tid) ?? [], invoices: invs }
+      const sent = sentByTenant.get(tid) ?? { date: null, method: null }
+      return {
+        tenantId: tid, draft, chargeIds: chargeIdsByTenant.get(tid) ?? [], invoices: invs,
+        sentDate: sent.date, sentMethod: sent.method,
+      }
     })
     .sort((a, b) => a.draft.tenantName.localeCompare(b.draft.tenantName))
 
