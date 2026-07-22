@@ -38,7 +38,7 @@ export default async function DispatchPage({ params, searchParams }: Props) {
   const { months, month, items } = await gatherDispatch({
     assetId: asset.asset_id, assetName: asset.asset_name, reference, type, month: sp.month,
   })
-  const mode = dispatchMode()
+  const mode = dispatchMode(reference)
 
   const drafts: DraftView[] = items.map(i => ({
     tenantId: i.tenantId,
@@ -104,6 +104,7 @@ export default async function DispatchPage({ params, searchParams }: Props) {
       ) : (
         <DispatchList
           assetId={asset.asset_id}
+          assetReference={reference}
           type={type}
           month={month!}
           monthLabel={monthLabel(`${month}-01`)}

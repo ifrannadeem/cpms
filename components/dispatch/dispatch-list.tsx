@@ -16,6 +16,7 @@ export interface DraftView {
 
 interface Props {
   assetId: string
+  assetReference: string
   type: 'RENT' | 'ELECTRIC'
   month: string
   monthLabel: string
@@ -28,7 +29,7 @@ type Status = { state: 'idle' | 'sending' | 'sent' | 'error'; message?: string }
 
 const DASH = String.fromCharCode(0x2014)
 
-export default function DispatchList({ assetId, type, month, monthLabel, live, testTo, drafts }: Props) {
+export default function DispatchList({ assetId, assetReference, type, month, monthLabel, live, testTo, drafts }: Props) {
   const router = useRouter()
   const [status, setStatus] = useState<Record<string, Status>>({})
   const [sendingAll, setSendingAll] = useState(false)
@@ -80,7 +81,8 @@ export default function DispatchList({ assetId, type, month, monthLabel, live, t
         ) : (
           <span>
             <span className="font-semibold">Test mode.</span> Every email is sent to <span className="font-medium">{testTo ?? '(DISPATCH_TEST_TO not set)'}</span> with
-            the intended tenant named inside, and nothing is marked as sent. To go live, set <code className="text-xs">DISPATCH_LIVE=true</code>.
+            the intended tenant named inside, and nothing is marked as sent. To take this asset live, add{' '}
+            <code className="text-xs">{assetReference}</code> to <code className="text-xs">DISPATCH_LIVE_ASSETS</code>.
           </span>
         )}
       </div>

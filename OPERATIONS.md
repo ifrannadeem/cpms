@@ -43,11 +43,14 @@ the live pilot; Rosehill follows; Peartree stays manual (WhatsApp).
 
 - **Recipients:** the tenancy's *Invoice recipients* field (comma-separated for
   several people), else the accounts/primary email.
-- **Test vs live (env vars on Vercel):** `SMTP_USER`, `SMTP_PASS` (Gmail App
-  Password) send the mail; `DISPATCH_TEST_TO` is the test inbox. Dispatch is in
-  **test mode** — every email goes to `DISPATCH_TEST_TO`, subject prefixed `[TEST]`,
-  intended recipient named inside, and **nothing is marked as sent** — until
-  `DISPATCH_LIVE=true` is set. Going live is that single env change.
+- **Test vs live is per asset (env vars on Vercel):** `SMTP_USER`, `SMTP_PASS`
+  (Gmail App Password) send the mail; `DISPATCH_TEST_TO` is the test inbox. An asset
+  is **live** only if its reference is in `DISPATCH_LIVE_ASSETS` (comma-separated) —
+  e.g. `ASSET-003` for Southgate. Everything else stays in **test mode**: every email
+  goes to `DISPATCH_TEST_TO`, subject prefixed `[TEST]`, recipient named inside, and
+  nothing marked sent. To add Rosehill later, append `ASSET-001`. (`DISPATCH_LIVE=true`
+  forces every asset live — avoid; use the per-asset list.)
+  Asset references: Rosehill `ASSET-001`, Peartree `ASSET-002`, Southgate `ASSET-003`.
 - **Send log:** a live send stamps `sent_date` / `sent_method=EMAIL` /
   `sent_to` on the charges, shown as "Sent" on the invoicing pages.
 - **Rotate the App Password:** revoke at myaccount.google.com/apppasswords, issue a

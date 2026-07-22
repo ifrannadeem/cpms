@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const item = items.find(i => i.tenantId === tenantId)
     if (!item) return NextResponse.json({ error: 'No issued invoices for this tenant in this cycle' }, { status: 404 })
 
-    const mode = dispatchMode()
+    const mode = dispatchMode(asset.asset_reference)
     let recipients: string[]
     let subject = item.draft.subject
     let text = item.draft.body

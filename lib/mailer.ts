@@ -14,9 +14,18 @@ export interface DispatchMode {
   testTo: string | null
 }
 
-export function dispatchMode(): DispatchMode {
+/**
+ * Live vs test is per asset, so assets can go live on different dates (Southgate
+ * August, Rosehill September). An asset is live if its reference is listed in
+ * DISPATCH_LIVE_ASSETS (comma/space separated), or if DISPATCH_LIVE=true forces
+ * everything live. Anything else stays in test mode (routed to DISPATCH_TEST_TO).
+ */
+export function dispatchMode(assetReference: string): DispatchMode {
+  const forceAll = process.env.DISPATCH_LIVE === 'true'
+  const liveAssets = (process.env.DISPATCH_LIVE_ASSETS || '')
+    .split(/[,\s]+/).map(s => s.trim()).filter(Boolean)
   return {
-    live: process.env.DISPATCH_LIVE === 'true',
+    live: forceAll || liveAssets.includes(assetReference),
     testTo: process.env.DISPATCH_TEST_TO?.trim() || null,
   }
 }
