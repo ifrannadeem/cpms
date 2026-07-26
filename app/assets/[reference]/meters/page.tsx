@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { unitLabel } from '@/lib/format'
 import Link from 'next/link'
 import AssetTabs from '@/components/asset-tabs'
-import ManageMeters, { type MeterRow } from '@/components/meters/manage-meters'
+import ManageMeters, { type MeterRow, type AvailableUnit } from '@/components/meters/manage-meters'
 
 interface Props {
   params: Promise<{ reference: string }>
@@ -26,8 +26,8 @@ export default async function ManageMetersPage({ params }: Props) {
   }
 
   const [{ data: meters }, { data: units }] = await Promise.all([
-    supabase.from('meters').select('meter_id, meter_reference, unit_id, active, dial_count').eq('asset_id', asset.asset_id),
-    supabase.from('units').select('unit_id, unit_reference').eq('asset_id', asset.asset_id),
+    supabase.from('meters').select('meter_id, meter_reference, serial_number, unit_id, active, dial_count').eq('asset_id', asset.asset_id),
+    supabase.from('units').select('unit_id, unit_reference, active').eq('asset_id', asset.asset_id),
   ])
 
   const meterIds = (meters ?? []).map(m => m.meter_id)
@@ -46,6 +46,7 @@ export default async function ManageMetersPage({ params }: Props) {
       return {
         meter_id: m.meter_id,
         meter_reference: m.meter_reference,
+        serial_number: m.serial_number ?? null,
         unit_label: ref ? unitLabel(ref) : DASH,
         dial_count: m.dial_count ?? 6,
         active: m.active !== false,
@@ -53,6 +54,13 @@ export default async function ManageMetersPage({ params }: Props) {
         last_date: last?.read_date ?? null,
       }
     })
+    .sort((a, b) => a.unit_label.localeCompare(b.unit_label, undefined, { numeric: true }))
+
+  // A unit can take a new meter only if it has no ACTIVE one (a retired meter is fine).
+  const unitsWithActiveMeter = new Set((meters ?? []).filter(m => m.active !== false).map(m => m.unit_id))
+  const availableUnits: AvailableUnit[] = (units ?? [])
+    .filter(u => u.active !== false && !unitsWithActiveMeter.has(u.unit_id))
+    .map(u => ({ unit_id: u.unit_id, unit_label: unitLabel(u.unit_reference) }))
     .sort((a, b) => a.unit_label.localeCompare(b.unit_label, undefined, { numeric: true }))
 
   return (
@@ -70,12 +78,13 @@ export default async function ManageMetersPage({ params }: Props) {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">{asset.asset_name} {DASH} Manage Meters</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Set each meter{String.fromCharCode(0x2019)}s digit count so rollovers are handled automatically, and reset a
-          meter when it is physically replaced or wound back.
+          Register a meter against a unit with its starting reading, record the serial number printed on the device,
+          set the digit count so rollovers are handled automatically, and reset a meter when it is physically
+          replaced or wound back.
         </p>
       </div>
 
-      <ManageMeters rows={rows} />
+      <ManageMeters rows={rows} availableUnits={availableUnits} />
 
       <div className="mt-6">
         <Link href={`/assets/${reference}/electric`} className="text-sm text-blue-600 hover:underline">
