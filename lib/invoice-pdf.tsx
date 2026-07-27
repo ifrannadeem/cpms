@@ -116,7 +116,7 @@ function AddressAndMeta({ inv }: { inv: InvoiceData }) {
   return (
     <View style={s.addrBlockRow}>
       <View style={s.tenantBox}>
-        <Text style={[s.bold, s.addrLine]}>{inv.tenantName}</Text>
+        <Text style={[s.bold, s.addrLine]}>{inv.tenantLegalName}</Text>
         {inv.tenantAddress.map((l, i) => <Text key={i} style={s.addrLine}>{l}</Text>)}
       </View>
       <View style={s.metaTable}>

@@ -63,6 +63,8 @@ export default function TenantEditor({ tenant }: Props) {
   const [error, setError]     = useState<string | null>(null)
   const [saved, setSaved]     = useState(false)
   const [form, setForm] = useState({
+    legalName: tenant.legal_name ?? '',
+    tradingName: tenant.trading_name ?? '',
     contact: tenant.primary_contact_name ?? '',
     email: tenant.primary_contact_email ?? '',
     phone: tenant.primary_contact_phone ?? '',
@@ -79,10 +81,14 @@ export default function TenantEditor({ tenant }: Props) {
   })
 
   async function handleSave() {
+    if (form.legalName.trim() === '') { setError('Legal name is required — it appears on every invoice'); return }
     setSaving(true)
     setError(null)
     const { error: rpcError } = await supabase.rpc('fn_update_tenant_details', {
       p_tenant_id: tenant.tenant_id,
+      p_legal_name: form.legalName.trim(),
+      // '' clears the trading name; screens then fall back to the legal name
+      p_trading_name: form.tradingName.trim(),
       p_contact_name: form.contact.trim() || null,
       p_contact_email: form.email.trim() || null,
       p_contact_phone: form.phone.trim() || null,
@@ -139,7 +145,8 @@ export default function TenantEditor({ tenant }: Props) {
           </Group>
           <Group title="Company">
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-              <Field label="Legal Name" value={tenant.legal_name} />
+              <div className="col-span-2"><Field label="Legal name (used on invoices)" value={tenant.legal_name} /></div>
+              <Field label="Trading name (used on screens)" value={tenant.trading_name} />
               <Field label="Company Number" value={tenant.company_number} />
             </div>
           </Group>
@@ -209,9 +216,27 @@ export default function TenantEditor({ tenant }: Props) {
           <input type="text" placeholder="Name" value={form.director}
             onChange={e => setForm({ ...form, director: e.target.value })} className={inputClass} />
         </Group>
-        <Group title="Company Number">
-          <input type="text" placeholder="e.g. 12345678" value={form.companyNumber}
-            onChange={e => setForm({ ...form, companyNumber: e.target.value })} className={inputClass} />
+        <Group title="Company">
+          <div className="grid grid-cols-1 gap-3">
+            <label className="text-xs text-slate-500">
+              Legal name {DASH} the party liable under the lease, shown on every invoice
+              <input type="text" placeholder="e.g. Apex UK1 Ltd" value={form.legalName}
+                onChange={e => setForm({ ...form, legalName: e.target.value })} className={`${inputClass} mt-1`} />
+            </label>
+            <label className="text-xs text-slate-500">
+              Trading name {DASH} the brand you recognise, shown on screens only
+              <input type="text" placeholder="e.g. Juices 4 Life" value={form.tradingName}
+                onChange={e => setForm({ ...form, tradingName: e.target.value })} className={`${inputClass} mt-1`} />
+              <span className="block text-[11px] text-slate-400 mt-1">
+                Leave blank to show the legal name everywhere. Never appears on an invoice.
+              </span>
+            </label>
+            <label className="text-xs text-slate-500">
+              Company number
+              <input type="text" placeholder="e.g. 12345678" value={form.companyNumber}
+                onChange={e => setForm({ ...form, companyNumber: e.target.value })} className={`${inputClass} mt-1`} />
+            </label>
+          </div>
         </Group>
         <Group title="Company Address">
           <input type="text" placeholder="Comma-separated lines" value={form.address}

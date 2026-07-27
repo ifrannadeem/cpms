@@ -83,6 +83,7 @@ describe('invoiceFileName', () => {
       periodEnd: '2026-07-31',
       premisesLabel: 'Unit 12',
       tenantName: 'Idris Rehman',
+      tenantLegalName: 'Idris Rehman',
     }
     expect(invoiceFileName(inv)).toBe('2607. Invoice - Rent - Unit 12 Idris Rehman.pdf')
   })
@@ -95,6 +96,7 @@ describe('invoiceFileName', () => {
       periodEnd: '2026-06-14',
       premisesLabel: 'Unit 12',
       tenantName: 'Idris Rehman',
+      tenantLegalName: 'Idris Rehman',
     }
     expect(invoiceFileName(inv)).toBe('2606. Invoice - Electric - Unit 12 Idris Rehman.pdf')
   })
@@ -107,7 +109,22 @@ describe('invoiceFileName', () => {
       periodEnd: '2026-07-31',
       premisesLabel: 'Unit 12',
       tenantName: 'A/B: Traders <Ltd>',
+      tenantLegalName: 'A/B: Traders <Ltd>',
     }
     expect(invoiceFileName(inv)).toBe('2607. Invoice - Rent - Unit 12 A B Traders Ltd.pdf')
+  })
+
+  it('names the file after the legal entity, never the brand', () => {
+    const inv: InvoiceData = {
+      ...base,
+      kind: 'RENT',
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-31',
+      premisesLabel: 'Unit A',
+      tenantName: 'Juices 4 Life',      // brand, shown on screens
+      tenantLegalName: 'Apex UK1 Ltd',  // party liable, shown on the invoice
+    }
+    expect(invoiceFileName(inv)).toBe('2608. Invoice - Rent - Unit A Apex UK1 Ltd.pdf')
+    expect(invoiceFileName(inv)).not.toContain('Juices')
   })
 })

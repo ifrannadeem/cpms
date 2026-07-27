@@ -56,6 +56,14 @@ verbatim thereafter (once migration `20260704120200` is applied).
   ends** (2026-07-26): a tenancy starting and/or ending mid-month bills the days
   occupied, both ends inclusive, over the days in that month. Preview and Generate
   share this rule, so the dry run matches what gets created.
+- **Two tenant names, deliberately separated** (owner decision 2026-07-26).
+  `legal_name` is the party liable under the lease and is the ONLY name that appears
+  on an invoice or its filename — a brand must never appear on a demand for payment,
+  which matters most for limited companies. `trading_name` is the recognisable brand
+  and is used on screens only (registers, payments, arrears, dispatch cards). Both are
+  edited on the tenancy page under Company. Invoice rendering reads `legal_name`
+  directly in `assembleInvoices`, not `v_charge_ledger.tenant_name` (which is the
+  screen name).
 - **End Tenancy is date-aware.** A future date on End Tenancy records notice and
   keeps the lease active and billing until then, ending it automatically on the date
   (nightly `fn_apply_due_terminations`). Today/backdated ends immediately.

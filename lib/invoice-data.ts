@@ -22,7 +22,11 @@ export interface InvoiceData {
   dueDate: string
   entity: IssuingEntity
   tenantId: string
+  /** Screen/display name: trading name where there is one. Never used on the invoice. */
   tenantName: string
+  /** The party liable under the lease. Invoices and their filenames use this, so a
+   *  brand name can never appear on a demand for payment. */
+  tenantLegalName: string
   tenantAddress: string[]
   premisesLabel: string
   premisesAddress: string
@@ -106,11 +110,12 @@ function sanitizeFileName(s: string): string {
   return s.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/** "2607. Invoice - Rent - Unit 12 Idris Rehman.pdf" (rent = period_start month, electric = period_end month) */
+/** "2607. Invoice - Rent - Unit 12 Idris Rehman.pdf" (rent = period_start month, electric = period_end month).
+ *  Named by the legal entity, matching the invoice itself. */
 export function invoiceFileName(inv: InvoiceData): string {
   const ym = yymm(inv.kind === 'ELECTRIC' ? inv.periodEnd : inv.periodStart)
   const typeLabel = inv.kind === 'ELECTRIC' ? 'Electric' : inv.kind === 'RENT' ? 'Rent' : 'Charge'
-  return sanitizeFileName(`${ym}. Invoice - ${typeLabel} - ${inv.premisesLabel} ${inv.tenantName}`) + '.pdf'
+  return sanitizeFileName(`${ym}. Invoice - ${typeLabel} - ${inv.premisesLabel} ${inv.tenantLegalName}`) + '.pdf'
 }
 
 export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData[]> {
@@ -131,7 +136,7 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
   const [{ data: entities }, { data: tenants }, { data: leaseUnits }, { data: assets }, { data: profiles }] =
     await Promise.all([
       supabase.from('issuing_entities').select('*').in('asset_id', assetIds),
-      supabase.from('tenants').select('tenant_id, correspondence_address').in('tenant_id', tenantIds),
+      supabase.from('tenants').select('tenant_id, correspondence_address, legal_name').in('tenant_id', tenantIds),
       supabase.from('lease_units').select('lease_id, units(unit_reference)').in('lease_id', leaseIds),
       supabase.from('assets').select('asset_id, asset_name, address_line_1, address_line_2, town, postcode').in('asset_id', assetIds),
       supabase.from('charge_profiles').select('lease_id, charge_type, vat_treatment').in('lease_id', leaseIds),
@@ -228,6 +233,7 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
       entity: entity as IssuingEntity,
       tenantId: c.tenant_id,
       tenantName: c.tenant_name,
+      tenantLegalName: tenant?.legal_name ?? c.tenant_name,
       tenantAddress,
       premisesLabel: premisesLabel(refs),
       premisesAddress,
