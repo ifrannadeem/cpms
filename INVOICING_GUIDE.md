@@ -39,6 +39,16 @@ Open the asset, then the **Rent: Invoicing** tab. The top card shows the workflo
 
 ---
 
+## Adding a charge after the run (mid-cycle lettings)
+
+If a tenancy starts after you have already generated the month — a new letting, a unit
+split, a lease created late — you do not need to redo the run. Go back to Rent:
+Invoicing, choose the same month, and use **Check for missing charges**. The preview
+lists every tenancy, marking those that already have a charge, and offers to generate
+only the ones that do not. Generation always skips a lease that already has a charge
+for that month, so re-running can never duplicate. Approve and Issue the new draft in
+the usual way, then send it from Email Invoices; tenants already sent are skipped.
+
 ## Electric: Invoicing
 
 Electric follows the same lifecycle (Approve, then Issue), with one difference at the start. Electric drafts are not generated from a monthly button. They are created automatically when you enter a meter reading on the **Meter Readings** screen, for meters where billing is switched on. Reference only meters (usage tracked but not billed) raise no charge.

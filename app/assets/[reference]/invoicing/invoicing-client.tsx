@@ -195,19 +195,19 @@ export default function InvoicingClient({ assetId, rentRows }: Props) {
             />
           </div>
 
-          {notGenerated && (
-            <>
-              <button onClick={handlePreview} disabled={!!busy}
-                className="px-5 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors">
-                {busy === 'preview' ? 'Loading...' : 'Preview charges'}
-              </button>
-              {preview && (
-                <button onClick={handleGenerate} disabled={!!busy || previewWouldCreate === 0}
-                  className="px-5 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-500 disabled:opacity-50 transition-colors">
-                  {busy === 'generate' ? 'Generating...' : `Generate ${previewWouldCreate} draft${previewWouldCreate !== 1 ? 's' : ''}`}
-                </button>
-              )}
-            </>
+          {/* Preview/Generate stay available after the run: a lease added mid-cycle
+              (new letting, split unit) needs its charge raising without touching the
+              rest. Generation skips any lease that already has a charge this month,
+              so re-running cannot duplicate. */}
+          <button onClick={handlePreview} disabled={!!busy}
+            className="px-5 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors">
+            {busy === 'preview' ? 'Loading...' : notGenerated ? 'Preview charges' : 'Check for missing charges'}
+          </button>
+          {preview && previewWouldCreate > 0 && (
+            <button onClick={handleGenerate} disabled={!!busy}
+              className="px-5 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-500 disabled:opacity-50 transition-colors">
+              {busy === 'generate' ? 'Generating...' : `Generate ${previewWouldCreate} draft${previewWouldCreate !== 1 ? 's' : ''}`}
+            </button>
           )}
 
           {monthDraft > 0 && (
@@ -367,10 +367,13 @@ export default function InvoicingClient({ assetId, rentRows }: Props) {
       )}
 
       {/* Preview panel — dry run before generating */}
-      {notGenerated && preview && (
+      {preview && (
         <div className="rounded-xl border border-slate-200 overflow-hidden">
           <div className="bg-slate-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200">
-            <h3 className="text-sm font-semibold text-slate-700">Preview {DASH} {monthLabel(month)}</h3>
+            <h3 className="text-sm font-semibold text-slate-700">
+              Preview {DASH} {monthLabel(month)}
+              {previewWouldCreate === 0 && <span className="font-normal text-slate-400"> {DASH} every tenancy already has a charge</span>}
+            </h3>
             <div className="flex gap-x-5 text-xs text-slate-600">
               <span className="text-emerald-700 font-medium">{previewWouldCreate} to create</span>
               <span>Net {fmt(previewTotals.net)}</span>
