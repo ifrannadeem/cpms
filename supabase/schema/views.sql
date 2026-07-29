@@ -1,4 +1,5 @@
--- Live public-schema VIEWS - Supabase project jkpftidophjivmaqpkuu - captured 2026-07-04 (pre-remediation snapshot)
+-- Live public-schema VIEWS - Supabase project jkpftidophjivmaqpkuu - captured 2026-07-29
+-- Source of truth for changes is supabase/migrations; this is the recovery baseline.
 
 -- reloptions: (none)
 CREATE OR REPLACE VIEW public.mgmt_audit_v AS
@@ -8,7 +9,8 @@ CREATE OR REPLACE VIEW public.mgmt_audit_v AS
     entity,
     row_id,
     summary,
-    site_id
+    site_id,
+    changed_by_email
    FROM mgmt.audit
   ORDER BY audit_id DESC
  LIMIT 400;
@@ -86,7 +88,8 @@ CREATE OR REPLACE VIEW public.mgmt_ledger_v AS
     cc_code,
     cc_name,
     cc_kind,
-    vat_quarter
+    vat_quarter,
+    updated_at
    FROM mgmt.v_ledger;
 
 -- reloptions: (none)
@@ -154,7 +157,7 @@ CREATE OR REPLACE VIEW public.mgmt_year_lock_v AS
     site_id
    FROM mgmt.year_lock;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_arrears_charges AS
  SELECT cr.charge_id,
     cr.tenant_id,
@@ -184,7 +187,7 @@ CREATE OR REPLACE VIEW public.v_arrears_charges AS
             ELSE cr.gross_amount
         END > 0::numeric AND cr.due_date IS NOT NULL AND (cr.charge_type::text = 'ELECTRIC'::text AND cr.due_date < (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) - '1 mon'::interval)::date OR cr.charge_type::text <> 'ELECTRIC'::text AND cr.due_date < date_trunc('month'::text, CURRENT_DATE::timestamp with time zone)::date);
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_arrears_summary AS
  SELECT tenant_id,
     tenant_name,
@@ -208,7 +211,7 @@ CREATE OR REPLACE VIEW public.v_arrears_summary AS
   GROUP BY tenant_id, tenant_name, asset_id, asset_name
   ORDER BY (sum(outstanding_amount)) DESC;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_billing_month_summary AS
  SELECT date_trunc('month'::text, cr.period_start::timestamp with time zone)::date AS billing_month,
     cr.asset_id,
@@ -223,7 +226,7 @@ CREATE OR REPLACE VIEW public.v_billing_month_summary AS
   GROUP BY (date_trunc('month'::text, cr.period_start::timestamp with time zone)), cr.asset_id, a.asset_name, cr.charge_type, cr.status
   ORDER BY (date_trunc('month'::text, cr.period_start::timestamp with time zone)::date) DESC, a.asset_name, cr.charge_type;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_charge_ledger AS
  SELECT cr.charge_id,
     cr.charge_type,
@@ -264,14 +267,15 @@ CREATE OR REPLACE VIEW public.v_charge_ledger AS
     cr.sent_date,
     cr.sent_method,
     cr.sent_to,
-    t.preferred_delivery_method
+    t.preferred_delivery_method,
+    cr.invoice_reference
    FROM charge_records cr
      JOIN leases l ON l.lease_id = cr.lease_id
      JOIN tenants t ON t.tenant_id = cr.tenant_id
      JOIN units u ON u.unit_id = cr.unit_id
      JOIN assets a ON a.asset_id = cr.asset_id;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_dashboard_critical AS
  SELECT alert_type,
     urgency,
@@ -290,7 +294,7 @@ CREATE OR REPLACE VIEW public.v_dashboard_critical AS
             ELSE 2
         END), days_until;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_dashboard_review AS
  SELECT alert_type,
     urgency,
@@ -310,7 +314,7 @@ CREATE OR REPLACE VIEW public.v_dashboard_review AS
             ELSE 3
         END), days_until;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_electric_usage AS
  SELECT cr.charge_id,
     to_char(cr.period_end::timestamp with time zone, 'YYYY-MM'::text) AS bill_month,
@@ -348,7 +352,7 @@ CREATE OR REPLACE VIEW public.v_electric_usage AS
      JOIN tenants t ON t.tenant_id = cr.tenant_id
   WHERE cr.charge_type = 'ELECTRIC'::charge_type_enum;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_lease_alerts AS
  SELECT l.lease_id,
     l.lease_reference,
@@ -466,7 +470,54 @@ UNION ALL
      JOIN assets a ON a.asset_id = l.asset_id
   WHERE ri.active AND l.active AND ri.incentive_end_date IS NOT NULL AND ri.incentive_end_date <= (CURRENT_DATE + '3 mons'::interval) AND ri.incentive_end_date >= CURRENT_DATE;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
+CREATE OR REPLACE VIEW public.v_lease_history AS
+ SELECT l.lease_id,
+    l.lease_reference,
+    l.lease_type,
+    l.lease_state,
+    a.asset_name,
+    a.asset_reference,
+    t.legal_name AS tenant_name,
+    t.trading_name,
+    string_agg(u.unit_reference, ', '::text ORDER BY u.unit_reference) AS unit_references,
+    l.commencement_date,
+    l.expiry_date,
+    l.next_rent_review_date,
+    l.break_clause_date,
+    l.rent_free_end_date,
+    l.annual_rent,
+    l.billing_frequency,
+        CASE
+            WHEN l.expiry_date IS NOT NULL AND l.expiry_date >= CURRENT_DATE THEN l.expiry_date - CURRENT_DATE
+            ELSE NULL::integer
+        END AS days_to_expiry,
+    ( SELECT min(
+                CASE al.urgency
+                    WHEN 'CRITICAL'::text THEN 1
+                    WHEN 'HIGH'::text THEN 2
+                    WHEN 'MEDIUM'::text THEN 3
+                    WHEN 'LOW'::text THEN 4
+                    ELSE NULL::integer
+                END) AS min
+           FROM v_lease_alerts al
+          WHERE al.lease_id = l.lease_id) AS alert_priority,
+    ( SELECT string_agg(DISTINCT al.alert_type, ', '::text) AS string_agg
+           FROM v_lease_alerts al
+          WHERE al.lease_id = l.lease_id) AS active_alert_types,
+    l.notes,
+    string_agg(u.unit_type::text, ', '::text ORDER BY u.unit_reference) AS unit_types,
+    l.termination_date,
+    l.termination_reason,
+    l.active
+   FROM leases l
+     JOIN tenants t ON t.tenant_id = l.tenant_id
+     JOIN assets a ON a.asset_id = l.asset_id
+     LEFT JOIN lease_units lu ON lu.lease_id = l.lease_id
+     LEFT JOIN units u ON u.unit_id = lu.unit_id
+  GROUP BY l.lease_id, l.lease_reference, l.lease_type, l.lease_state, a.asset_name, a.asset_reference, t.legal_name, t.trading_name, l.commencement_date, l.expiry_date, l.next_rent_review_date, l.break_clause_date, l.rent_free_end_date, l.annual_rent, l.billing_frequency, l.notes, l.termination_date, l.termination_reason, l.active;
+
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_lease_register AS
  SELECT l.lease_id,
     l.lease_reference,
@@ -512,7 +563,7 @@ CREATE OR REPLACE VIEW public.v_lease_register AS
   GROUP BY l.lease_id, l.lease_reference, l.lease_type, l.lease_state, a.asset_name, a.asset_reference, t.legal_name, t.trading_name, l.commencement_date, l.expiry_date, l.next_rent_review_date, l.break_clause_date, l.rent_free_end_date, l.annual_rent, l.billing_frequency, l.notes
   ORDER BY a.asset_name, l.lease_reference;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_meter_usage AS
  SELECT mr.read_id,
     m.meter_id,
@@ -541,7 +592,7 @@ CREATE OR REPLACE VIEW public.v_meter_usage AS
      LEFT JOIN blocks b ON b.block_id = u.block_id
      JOIN assets a ON a.asset_id = m.asset_id;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_payment_grid AS
  SELECT l.lease_id,
     l.lease_reference,
@@ -565,7 +616,7 @@ CREATE OR REPLACE VIEW public.v_payment_grid AS
   WHERE l.lease_state <> 'TERMINATED'::lease_state_enum
   GROUP BY l.lease_id, l.lease_reference, l.lease_state, ua.asset_id, a.asset_reference, l.tenant_id, t.trading_name, t.legal_name, ua.unit_references;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_payment_register AS
  SELECT p.payment_id,
     p.asset_id,
@@ -580,17 +631,24 @@ CREATE OR REPLACE VIEW public.v_payment_register AS
     p.created_at,
     COALESCE(alloc.allocation_count, 0::bigint) AS allocation_count,
     alloc.allocated_charges,
-    p.charge_type
+    p.charge_type,
+    COALESCE(alloc.unit_references, ( SELECT string_agg(DISTINCT u2.unit_reference, ', '::text) AS string_agg
+           FROM leases l2
+             JOIN lease_units lu2 ON lu2.lease_id = l2.lease_id
+             JOIN units u2 ON u2.unit_id = lu2.unit_id
+          WHERE l2.tenant_id = p.tenant_id AND l2.asset_id = p.asset_id AND l2.lease_state <> 'TERMINATED'::lease_state_enum)) AS unit_references
    FROM payments p
      JOIN assets a ON a.asset_id = p.asset_id
      JOIN tenants t ON t.tenant_id = p.tenant_id
      LEFT JOIN LATERAL ( SELECT count(*) AS allocation_count,
-            string_agg(((cr.charge_label || ' ('::text) || pa.allocated_amount::text) || ')'::text, '; '::text ORDER BY cr.due_date) AS allocated_charges
+            string_agg(((cr.charge_label || ' ('::text) || pa.allocated_amount::text) || ')'::text, '; '::text ORDER BY cr.due_date) AS allocated_charges,
+            string_agg(DISTINCT u.unit_reference, ', '::text) AS unit_references
            FROM payment_allocations pa
              JOIN charge_records cr ON cr.charge_id = pa.charge_id
+             JOIN units u ON u.unit_id = cr.unit_id
           WHERE pa.payment_id = p.payment_id) alloc ON true;
 
--- reloptions: (none)
+-- reloptions: security_invoker=true
 CREATE OR REPLACE VIEW public.v_portfolio_health AS
  SELECT a.asset_id,
     a.asset_name,
@@ -621,11 +679,13 @@ CREATE OR REPLACE VIEW public.v_portfolio_health AS
             WHEN l.lease_state = 'APPROACHING_EXPIRY'::lease_state_enum THEN l.lease_id
             ELSE NULL::uuid
         END) AS approaching_expiry,
-    COALESCE(sum(
-        CASE
-            WHEN l.active = true AND l.lease_state <> 'TERMINATED'::lease_state_enum THEN l.annual_rent
-            ELSE NULL::numeric
-        END), 0::numeric) AS total_annual_rent,
+    COALESCE(( SELECT sum(x.annual_rent) AS sum
+           FROM ( SELECT DISTINCT l3.lease_id,
+                    l3.annual_rent
+                   FROM units u3
+                     JOIN lease_units lu3 ON lu3.unit_id = u3.unit_id
+                     JOIN leases l3 ON l3.lease_id = lu3.lease_id
+                  WHERE u3.asset_id = a.asset_id AND u3.active = true AND l3.active = true AND l3.lease_state <> 'TERMINATED'::lease_state_enum) x), 0::numeric) AS total_annual_rent,
     count(DISTINCT al.lease_reference) AS critical_alert_count
    FROM assets a
      LEFT JOIN units u ON u.asset_id = a.asset_id AND u.active = true
@@ -635,3 +695,28 @@ CREATE OR REPLACE VIEW public.v_portfolio_health AS
   WHERE a.active = true
   GROUP BY a.asset_id, a.asset_name, a.asset_reference
   ORDER BY a.asset_name;
+
+-- reloptions: security_invoker=true
+CREATE OR REPLACE VIEW public.v_unit_history AS
+ SELECT u.unit_id,
+    u.unit_reference,
+    u.asset_id,
+    a.asset_reference,
+    a.asset_name,
+    l.lease_id,
+    l.lease_reference,
+    l.lease_type,
+    l.lease_state,
+    COALESCE(t.trading_name, t.legal_name) AS tenant_name,
+    t.legal_name,
+    l.commencement_date,
+    l.expiry_date,
+    l.termination_date,
+    l.termination_reason,
+    l.annual_rent,
+    l.active AS lease_active
+   FROM units u
+     JOIN assets a ON a.asset_id = u.asset_id
+     JOIN lease_units lu ON lu.unit_id = u.unit_id
+     JOIN leases l ON l.lease_id = lu.lease_id
+     JOIN tenants t ON t.tenant_id = l.tenant_id;

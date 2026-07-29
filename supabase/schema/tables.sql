@@ -1,4 +1,5 @@
--- Live public-schema TABLES (column definitions; PK/FK/CHECK in constraints_indexes.sql) - Supabase project jkpftidophjivmaqpkuu - captured 2026-07-04 (pre-remediation snapshot)
+-- Live public-schema TABLES (columns; constraints in constraints_indexes.sql) - Supabase project jkpftidophjivmaqpkuu - captured 2026-07-29
+-- Source of truth for changes is supabase/migrations; this is the recovery baseline.
 
 CREATE TABLE public.arrears_actions (
   action_id uuid DEFAULT gen_random_uuid() NOT NULL,

@@ -2,6 +2,31 @@
 
 _Last updated 2026-07-04 as part of the due-diligence remediation._
 
+## Where things stand — 29 July 2026
+
+**August 2026 is fully issued.** Rosehill 33 rent invoices (issued, sent manually),
+Peartree 9 (sent 28 Jul), Southgate 11 (emailed 27 Jul, the live pilot). Electric
+issued per cycle. Nothing outstanding in the August run.
+
+**Live but not yet exercised** — these activate with the September run, so expect them
+and do not mistake them for faults:
+- Invoice references gain a property code: `R2609-RBC-U10` (August stays `R2608-U10`).
+- Rent concessions print as headline-less-concession on the eight discounted
+  tenancies (five at Peartree). Held back from August deliberately.
+
+**In flight**
+- *Southgate 2.5/2.6/2.7*: new tenant agreed subject to signature, taking occupation
+  1 Aug. On signature: bring Ambitions Personnel's end date forward (currently
+  17 Aug, scheduled), **cancel their August invoice — it was emailed on 27 July, so
+  it needs a credit note explaining it**, create the new lease(s), then use *Check for
+  missing charges* to raise the part-month rent. Suites 2.5/2.6 are one tenancy for
+  rent, two meters for electric (combines into one email, as Giara does).
+- *Rosehill email go-live, September*: needs (a) real invoice recipients on every
+  Rosehill tenancy — most are still `…@placeholder.tbc`, including all three Maher
+  records; (b) a decision on whether Rosehill sends from its own mailbox, which needs
+  its own Gmail App Password and per-asset SMTP credentials (about an hour's work);
+  (c) `ASSET-001` added to `DISPATCH_LIVE_ASSETS`.
+
 ## Owner actions still required (in priority order)
 
 1. **MFA on the dashboard accounts** (Supabase, GitHub, Vercel — account settings,

@@ -1,39 +1,5 @@
--- Live public-schema ENUMS / CONSTRAINTS / INDEXES / TRIGGERS - Supabase project jkpftidophjivmaqpkuu - captured 2026-07-04 (pre-remediation snapshot)
-
--- ENUM TYPES
-
-CREATE TYPE public.apportionment_basis_enum AS ENUM ('FLOOR_AREA', 'EQUAL_SHARE', 'CUSTOM');
-CREATE TYPE public.asset_type_enum AS ENUM ('RETAIL_PARK', 'RETAIL', 'OFFICE', 'MIXED_USE', 'INDUSTRIAL', 'OTHER');
-CREATE TYPE public.billing_frequency_enum AS ENUM ('MONTHLY', 'QUARTERLY', 'ANNUAL');
-CREATE TYPE public.break_clause_party_enum AS ENUM ('LANDLORD', 'TENANT', 'MUTUAL');
-CREATE TYPE public.calculation_method_enum AS ENUM ('FIXED', 'METER_BASED', 'APPORTIONED');
-CREATE TYPE public.charge_status_enum AS ENUM ('DRAFT', 'APPROVED', 'ISSUED', 'PAID', 'PART_PAID', 'OVERDUE', 'DISPUTED', 'WRITTEN_OFF', 'CREDITED');
-CREATE TYPE public.charge_type_enum AS ENUM ('RENT', 'ELECTRIC', 'INSURANCE', 'WATER', 'SERVICE_CHARGE', 'CREDIT', 'OTHER');
-CREATE TYPE public.compliance_status_enum AS ENUM ('COMPLIANT', 'DUE_SOON', 'OVERDUE', 'NOT_APPLICABLE');
-CREATE TYPE public.compliance_type_enum AS ENUM ('EPC', 'EICR', 'GAS_SAFETY', 'FIRE_RISK', 'ASBESTOS', 'LEGIONELLA', 'HVAC', 'LIFT', 'INSURANCE', 'PAT', 'OTHER');
-CREATE TYPE public.deposit_type_enum AS ENUM ('CASH', 'GUARANTEE', 'NONE');
-CREATE TYPE public.document_type_enum AS ENUM ('LEASE', 'COMPLIANCE_CERT', 'MAINTENANCE', 'CORRESPONDENCE', 'BILLING', 'INSPECTION', 'OTHER');
-CREATE TYPE public.entity_type_enum AS ENUM ('PORTFOLIO', 'ASSET', 'BLOCK', 'UNIT', 'LEASE', 'TENANT', 'CHARGE_RECORD', 'COMPLIANCE_RECORD', 'MAINTENANCE_EVENT', 'SIGNIFICANT_EVENT', 'CONTRACTOR', 'METER', 'DOCUMENT');
-CREATE TYPE public.event_category_enum AS ENUM ('FINANCIAL', 'LEASE', 'OPERATIONAL', 'TENANT', 'STRATEGIC', 'COMPLIANCE');
-CREATE TYPE public.file_format_enum AS ENUM ('PDF', 'DOCX', 'XLSX', 'JPG', 'OTHER');
-CREATE TYPE public.generated_by_enum AS ENUM ('SYSTEM', 'MANUAL');
-CREATE TYPE public.incentive_type_enum AS ENUM ('RENT_FREE', 'FIXED_DISCOUNT', 'STEPPED_RENT');
-CREATE TYPE public.lease_state_enum AS ENUM ('ACTIVE', 'APPROACHING_REVIEW', 'APPROACHING_EXPIRY', 'PERIODIC', 'TERMINATED');
-CREATE TYPE public.lease_type_enum AS ENUM ('FIXED_TERM', 'PERIODIC', 'TENANCY_AT_WILL');
-CREATE TYPE public.maintenance_category_enum AS ENUM ('REACTIVE', 'PLANNED', 'COMPLIANCE', 'VOID_WORKS', 'CAPITAL');
-CREATE TYPE public.maintenance_priority_enum AS ENUM ('EMERGENCY', 'URGENT', 'ROUTINE', 'PLANNED');
-CREATE TYPE public.maintenance_status_enum AS ENUM ('REPORTED', 'QUOTED', 'INSTRUCTED', 'IN_PROGRESS', 'COMPLETE', 'INVOICED');
-CREATE TYPE public.meter_type_enum AS ENUM ('ELECTRICITY', 'WATER', 'GAS');
-CREATE TYPE public.read_type_enum AS ENUM ('ACTUAL', 'ESTIMATED');
-CREATE TYPE public.rent_review_basis_enum AS ENUM ('OPEN_MARKET', 'RPI', 'CPI', 'FIXED_UPLIFT', 'NONE');
-CREATE TYPE public.repairing_obligation_enum AS ENUM ('FRI', 'IRI', 'SCHEDULE_OF_CONDITION', 'OTHER');
-CREATE TYPE public.tenant_state_enum AS ENUM ('STABLE', 'SLOW_PAYER', 'ARREARS_CONCERN');
-CREATE TYPE public.tenant_type_enum AS ENUM ('COMPANY', 'INDIVIDUAL', 'PARTNERSHIP', 'OTHER');
-CREATE TYPE public.termination_reason_enum AS ENUM ('EXPIRY', 'SURRENDER', 'BREAK_LANDLORD', 'BREAK_TENANT', 'FORFEITURE');
-CREATE TYPE public.unit_state_enum AS ENUM ('OCCUPIED', 'VACANT', 'UNDER_OFFER');
-CREATE TYPE public.unit_type_enum AS ENUM ('OFFICE', 'RETAIL', 'WORKSHOP', 'STORAGE', 'OTHER');
-CREATE TYPE public.utility_type_enum AS ENUM ('ELECTRICITY', 'WATER', 'GAS');
-CREATE TYPE public.vat_treatment_enum AS ENUM ('STANDARD', 'EXEMPT', 'ZERO_RATED', 'OUTSIDE_SCOPE', 'VAT_DEFERRED');
+-- Live public-schema CONSTRAINTS / INDEXES / TRIGGERS - Supabase project jkpftidophjivmaqpkuu - captured 2026-07-29
+-- Source of truth for changes is supabase/migrations; this is the recovery baseline.
 
 -- CONSTRAINTS
 

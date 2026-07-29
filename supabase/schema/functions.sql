@@ -1,8 +1,10 @@
--- Live public-schema FUNCTIONS — Supabase project jkpftidophjivmaqpkuu — captured 2026-07-04 (pre-remediation snapshot)
+-- Live public-schema FUNCTIONS - Supabase project jkpftidophjivmaqpkuu - captured 2026-07-29
+-- Source of truth for changes is supabase/migrations; this is the recovery baseline.
 
 CREATE OR REPLACE FUNCTION public.check_unique_active_lease_per_unit()
  RETURNS trigger
  LANGUAGE plpgsql
+ SET search_path TO 'public'
 AS $function$
 BEGIN
   IF EXISTS (
@@ -19,6 +21,64 @@ BEGIN
       NEW.unit_id;
   END IF;
   RETURN NEW;
+END;
+$function$
+
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.fn_add_meter(p_unit_id uuid, p_meter_reference text, p_baseline_reading numeric, p_baseline_date date DEFAULT CURRENT_DATE, p_dial_count smallint DEFAULT 6, p_serial_number text DEFAULT NULL::text, p_meter_type text DEFAULT 'ELECTRICITY'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_unit     RECORD;
+  v_meter_id uuid := gen_random_uuid();
+  v_read_id  uuid;
+  v_ref      text := TRIM(COALESCE(p_meter_reference, ''));
+BEGIN
+  IF v_ref = '' THEN
+    RAISE EXCEPTION 'A meter reference is required';
+  END IF;
+  IF p_dial_count IS NULL OR p_dial_count < 4 OR p_dial_count > 8 THEN
+    RAISE EXCEPTION 'Dial count must be between 4 and 8';
+  END IF;
+  IF p_baseline_reading IS NULL OR p_baseline_reading < 0
+     OR p_baseline_reading >= power(10, p_dial_count)::numeric THEN
+    RAISE EXCEPTION 'Baseline reading must be between 0 and %', (power(10, p_dial_count)::numeric - 1);
+  END IF;
+  IF p_baseline_date IS NULL THEN
+    RAISE EXCEPTION 'A baseline reading date is required';
+  END IF;
+
+  SELECT u.unit_id, u.asset_id, u.block_id, u.unit_reference
+  INTO v_unit FROM units u WHERE u.unit_id = p_unit_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Unit not found'; END IF;
+
+  IF EXISTS (SELECT 1 FROM meters m WHERE m.unit_id = p_unit_id AND m.active = TRUE) THEN
+    RAISE EXCEPTION 'Unit % already has an active meter. Switch it off or reassign it first.', v_unit.unit_reference;
+  END IF;
+  IF EXISTS (SELECT 1 FROM meters m WHERE m.meter_reference = v_ref) THEN
+    RAISE EXCEPTION 'Meter reference % is already in use', v_ref;
+  END IF;
+
+  INSERT INTO meters (meter_id, unit_id, asset_id, block_id, meter_reference, meter_type,
+                      serial_number, dial_count, installation_date, active)
+  VALUES (v_meter_id, p_unit_id, v_unit.asset_id, v_unit.block_id, v_ref,
+          p_meter_type::meter_type_enum, NULLIF(TRIM(COALESCE(p_serial_number, '')), ''),
+          p_dial_count, p_baseline_date, TRUE);
+
+  INSERT INTO meter_reads (meter_id, read_date, reading_value, read_type, entered_by,
+                           consumption_kwh, charge_id, notes)
+  VALUES (v_meter_id, p_baseline_date, p_baseline_reading, 'ACTUAL', 'UI',
+          NULL, NULL, 'Baseline reading on registration - no charge raised')
+  RETURNING read_id INTO v_read_id;
+
+  RETURN jsonb_build_object(
+    'meter_id', v_meter_id, 'read_id', v_read_id,
+    'meter_reference', v_ref, 'unit_reference', v_unit.unit_reference);
 END;
 $function$
 
@@ -131,6 +191,44 @@ BEGIN
     ' (' || trim(p_reason) || ')');
 
   RETURN jsonb_build_object('charge_id', p_charge_id, 'net', p_new_net, 'vat', v_vat, 'gross', v_gross, 'status', v_new_status);
+END;
+$function$
+
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.fn_apply_due_terminations()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE v_count integer := 0; v_lease RECORD;
+BEGIN
+  FOR v_lease IN
+    SELECT lease_id, tenant_id, termination_date, termination_reason
+    FROM leases
+    WHERE active = true
+      AND lease_state <> 'TERMINATED'
+      AND termination_date IS NOT NULL
+      AND termination_date < CURRENT_DATE
+  LOOP
+    UPDATE leases SET lease_state = 'TERMINATED', active = false, updated_at = now()
+    WHERE lease_id = v_lease.lease_id;
+
+    UPDATE units SET unit_state = 'VACANT', vacancy_start_date = v_lease.termination_date, updated_at = now()
+    WHERE unit_id IN (SELECT unit_id FROM lease_units WHERE lease_id = v_lease.lease_id);
+
+    UPDATE meters SET active = false, updated_at = now()
+    WHERE unit_id IN (SELECT unit_id FROM lease_units WHERE lease_id = v_lease.lease_id);
+
+    INSERT INTO tenant_activity (tenant_id, lease_id, activity_type, summary)
+    VALUES (v_lease.tenant_id, v_lease.lease_id, 'SYSTEM',
+      'Tenancy ended ' || TO_CHAR(v_lease.termination_date, 'DD Mon YYYY') ||
+      ' (' || LOWER(COALESCE(v_lease.termination_reason::text, 'expiry')) || ') — scheduled end applied.');
+    v_count := v_count + 1;
+  END LOOP;
+  RETURN v_count;
 END;
 $function$
 
@@ -264,6 +362,7 @@ CREATE OR REPLACE FUNCTION public.fn_calculate_lease_state(p_current_state lease
  RETURNS lease_state_enum
  LANGUAGE plpgsql
  STABLE
+ SET search_path TO 'public'
 AS $function$
 BEGIN
     -- TERMINATED is manual-only — never overwritten by engine
@@ -287,6 +386,55 @@ BEGIN
     END IF;
 
     RETURN 'ACTIVE';
+END;
+$function$
+
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.fn_cancel_charge(p_charge_id uuid, p_outcome text, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_charge RECORD;
+BEGIN
+  IF p_outcome NOT IN ('CREDITED', 'WRITTEN_OFF') THEN
+    RAISE EXCEPTION 'Outcome must be CREDITED (cancelled / not due) or WRITTEN_OFF (bad debt)';
+  END IF;
+  IF p_reason IS NULL OR length(trim(p_reason)) = 0 THEN
+    RAISE EXCEPTION 'A reason is required to cancel an invoice';
+  END IF;
+
+  SELECT charge_id, lease_id, tenant_id, charge_label, status,
+         COALESCE(payment_amount, 0) AS paid
+  INTO v_charge FROM charge_records WHERE charge_id = p_charge_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Charge not found'; END IF;
+
+  IF v_charge.status NOT IN ('ISSUED', 'OVERDUE', 'PART_PAID') THEN
+    RAISE EXCEPTION 'Only issued invoices can be cancelled (current status: %). Drafts should be regenerated instead.', v_charge.status;
+  END IF;
+  IF p_outcome = 'CREDITED' AND v_charge.paid > 0 THEN
+    RAISE EXCEPTION 'This invoice has a payment of % recorded against it. Adjust the amount instead, or write off the remainder.', v_charge.paid;
+  END IF;
+
+  UPDATE charge_records SET
+    status     = p_outcome::charge_status_enum,
+    notes      = COALESCE(notes || ' | ', '')
+                 || CASE p_outcome WHEN 'CREDITED' THEN 'Cancelled' ELSE 'Written off' END
+                 || ' ' || TO_CHAR(CURRENT_DATE, 'DD Mon YYYY') || ': ' || trim(p_reason),
+    updated_at = now()
+  WHERE charge_id = p_charge_id;
+
+  INSERT INTO tenant_activity (tenant_id, lease_id, activity_type, summary)
+  VALUES (v_charge.tenant_id, v_charge.lease_id, 'SYSTEM',
+    'Invoice "' || v_charge.charge_label || '" ' ||
+    CASE p_outcome WHEN 'CREDITED' THEN 'cancelled' ELSE 'written off' END ||
+    ': ' || trim(p_reason));
+
+  RETURN jsonb_build_object('charge_id', p_charge_id, 'status', p_outcome);
 END;
 $function$
 
@@ -379,6 +527,7 @@ CREATE OR REPLACE FUNCTION public.fn_generate_asset_rent_charges(p_billing_month
  RETURNS TABLE(out_lease_id uuid, out_tenant_name text, out_charge_id uuid, out_net_amount numeric, out_label text, out_message text)
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_period_start  DATE;
@@ -394,6 +543,11 @@ DECLARE
   v_label         TEXT;
   v_due_date      DATE;
   v_msg           TEXT;
+  v_rent_start    DATE;
+  v_occ_from      DATE;
+  v_occ_to        DATE;
+  v_days_occ      INTEGER;
+  v_days_month    INTEGER;
 BEGIN
   v_period_start := DATE_TRUNC('month', p_billing_month)::DATE;
   v_period_end   := (DATE_TRUNC('month', p_billing_month) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
@@ -405,7 +559,7 @@ BEGIN
     WHERE l.asset_id = p_asset_id
       AND l.lease_state IN ('ACTIVE','PERIODIC','APPROACHING_REVIEW','APPROACHING_EXPIRY')
       AND l.active = TRUE
-      AND l.commencement_date <= v_period_end
+      AND COALESCE(l.rent_commencement_date, l.commencement_date) <= v_period_end
       AND (l.termination_date IS NULL OR l.termination_date >= v_period_start)
   LOOP
     SELECT * INTO v_profile
@@ -421,10 +575,14 @@ BEGIN
         AND cr.period_start = v_period_start
     ) THEN CONTINUE; END IF;
 
-    SELECT lu.unit_id INTO v_unit_id FROM lease_units lu WHERE lu.lease_id = v_lease.lease_id LIMIT 1;
+    SELECT lu.unit_id INTO v_unit_id
+    FROM lease_units lu
+    JOIN units u ON u.unit_id = lu.unit_id
+    WHERE lu.lease_id = v_lease.lease_id
+    ORDER BY u.unit_reference
+    LIMIT 1;
     IF v_unit_id IS NULL THEN CONTINUE; END IF;
 
-    -- Rent derives from the lease (profile amount only as a fallback)
     v_net_amount := ROUND(COALESCE(v_lease.annual_rent, v_profile.fixed_amount_annual) / 12.0, 2);
     v_msg := NULL;
 
@@ -448,6 +606,21 @@ BEGIN
     ELSIF v_lease.rent_free_end_date IS NOT NULL AND v_lease.rent_free_end_date >= v_period_start THEN
       v_net_amount := 0.00;
       v_msg := 'Rent-free period active';
+    END IF;
+
+    v_rent_start := COALESCE(v_lease.rent_commencement_date, v_lease.commencement_date);
+    v_occ_from   := GREATEST(v_period_start, v_rent_start);
+    v_occ_to     := LEAST(v_period_end, COALESCE(v_lease.termination_date, v_period_end));
+    v_days_month := (v_period_end - v_period_start) + 1;
+    v_days_occ   := (v_occ_to - v_occ_from) + 1;
+
+    IF v_days_occ <= 0 THEN CONTINUE; END IF;
+
+    IF v_days_occ < v_days_month AND v_net_amount > 0 THEN
+      v_net_amount := ROUND(v_net_amount * v_days_occ::numeric / v_days_month::numeric, 2);
+      v_msg := COALESCE(v_msg || ' | ', '')
+               || 'Part month pro-rata: ' || v_days_occ || '/' || v_days_month || ' days ('
+               || TO_CHAR(v_occ_from, 'DD Mon') || ' to ' || TO_CHAR(v_occ_to, 'DD Mon YYYY') || ')';
     END IF;
 
     v_vat_rate   := CASE v_profile.vat_treatment WHEN 'STANDARD' THEN 0.2000 ELSE 0.0000 END;
@@ -479,6 +652,7 @@ CREATE OR REPLACE FUNCTION public.fn_generate_rent_charges(p_billing_month date)
  RETURNS TABLE(out_lease_id uuid, out_tenant_name text, out_charge_id uuid, out_net_amount numeric, out_label text, out_message text)
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_period_start  DATE;
@@ -796,9 +970,9 @@ AS $function$
     COALESCE(t.trading_name, t.legal_name) AS tenant_name,
     u.unit_reference,
     calc.net_amount,
-    calc.vat_rate,
-    calc.vat_amount,
-    (calc.net_amount + calc.vat_amount) AS gross_amount,
+    b.vat_rate,
+    round(calc.net_amount * b.vat_rate, 2) AS vat_amount,
+    (calc.net_amount + round(calc.net_amount * b.vat_rate, 2)) AS gross_amount,
     'Rent ' || to_char(p.ps, 'FMMonth YYYY') AS label,
     EXISTS (
       SELECT 1 FROM charge_records cr
@@ -808,12 +982,16 @@ AS $function$
   FROM p
   JOIN leases l ON l.asset_id = p_asset_id AND l.active = TRUE
     AND l.lease_state IN ('ACTIVE','PERIODIC','APPROACHING_REVIEW','APPROACHING_EXPIRY')
-    AND l.commencement_date <= p.pe
+    AND COALESCE(l.rent_commencement_date, l.commencement_date) <= p.pe
     AND (l.termination_date IS NULL OR l.termination_date >= p.ps)
   JOIN tenants t ON t.tenant_id = l.tenant_id
   JOIN charge_profiles cp ON cp.lease_id = l.lease_id AND cp.charge_type = 'RENT'
     AND cp.applies = TRUE AND cp.active = TRUE
-  JOIN LATERAL (SELECT lu.unit_id FROM lease_units lu WHERE lu.lease_id = l.lease_id LIMIT 1) ul ON TRUE
+  JOIN LATERAL (
+    SELECT lu.unit_id FROM lease_units lu
+    JOIN units uu ON uu.unit_id = lu.unit_id
+    WHERE lu.lease_id = l.lease_id ORDER BY uu.unit_reference LIMIT 1
+  ) ul ON TRUE
   JOIN units u ON u.unit_id = ul.unit_id
   LEFT JOIN LATERAL (
     SELECT ri.incentive_type, ri.billed_amount_monthly
@@ -825,24 +1003,40 @@ AS $function$
     LIMIT 1
   ) inc ON TRUE
   CROSS JOIN LATERAL (
-    SELECT net_amount, vat_rate, round(net_amount * vat_rate, 2) AS vat_amount, note
-    FROM (
-      SELECT
-        CASE
-          WHEN inc.incentive_type = 'RENT_FREE' THEN 0.00
-          WHEN inc.billed_amount_monthly IS NOT NULL THEN round(inc.billed_amount_monthly, 2)
-          WHEN l.rent_free_end_date IS NOT NULL AND l.rent_free_end_date >= p.ps THEN 0.00
-          ELSE round(COALESCE(l.annual_rent, cp.fixed_amount_annual) / 12.0, 2)
-        END AS net_amount,
-        CASE cp.vat_treatment WHEN 'STANDARD' THEN 0.2000 ELSE 0.0000 END AS vat_rate,
-        CASE
-          WHEN inc.incentive_type = 'RENT_FREE' THEN 'Rent-free period active'
-          WHEN inc.billed_amount_monthly IS NOT NULL THEN 'Incentive applied: ' || inc.incentive_type
-          WHEN l.rent_free_end_date IS NOT NULL AND l.rent_free_end_date >= p.ps THEN 'Rent-free period active'
-          ELSE NULL
-        END AS note
-    ) z
+    SELECT
+      GREATEST(p.ps, COALESCE(l.rent_commencement_date, l.commencement_date)) AS occ_from,
+      LEAST(p.pe, COALESCE(l.termination_date, p.pe))                         AS occ_to,
+      ((p.pe - p.ps) + 1)                                                     AS days_month
+  ) w
+  CROSS JOIN LATERAL (SELECT ((w.occ_to - w.occ_from) + 1) AS days_occ) d
+  CROSS JOIN LATERAL (
+    SELECT
+      CASE
+        WHEN inc.incentive_type = 'RENT_FREE' THEN 0.00
+        WHEN inc.billed_amount_monthly IS NOT NULL THEN round(inc.billed_amount_monthly, 2)
+        WHEN l.rent_free_end_date IS NOT NULL AND l.rent_free_end_date >= p.ps THEN 0.00
+        ELSE round(COALESCE(l.annual_rent, cp.fixed_amount_annual) / 12.0, 2)
+      END AS base_net,
+      CASE cp.vat_treatment WHEN 'STANDARD' THEN 0.2000 ELSE 0.0000 END AS vat_rate,
+      CASE
+        WHEN inc.incentive_type = 'RENT_FREE' THEN 'Rent-free period active'
+        WHEN inc.billed_amount_monthly IS NOT NULL THEN 'Incentive applied: ' || inc.incentive_type
+        WHEN l.rent_free_end_date IS NOT NULL AND l.rent_free_end_date >= p.ps THEN 'Rent-free period active'
+        ELSE NULL
+      END AS base_note
+  ) b
+  CROSS JOIN LATERAL (
+    SELECT
+      CASE WHEN d.days_occ < w.days_month AND b.base_net > 0
+           THEN round(b.base_net * d.days_occ::numeric / w.days_month::numeric, 2)
+           ELSE b.base_net END AS net_amount,
+      CASE WHEN d.days_occ < w.days_month AND b.base_net > 0
+           THEN COALESCE(b.base_note || ' | ', '')
+                || 'Part month pro-rata: ' || d.days_occ || '/' || w.days_month || ' days ('
+                || to_char(w.occ_from, 'DD Mon') || ' to ' || to_char(w.occ_to, 'DD Mon YYYY') || ')'
+           ELSE b.base_note END AS note
   ) calc
+  WHERE d.days_occ > 0
   ORDER BY u.unit_reference;
 $function$
 
@@ -1185,6 +1379,7 @@ $function$
 CREATE OR REPLACE FUNCTION public.fn_refresh_lease_states()
  RETURNS TABLE(lease_reference text, old_state lease_state_enum, new_state lease_state_enum)
  LANGUAGE plpgsql
+ SET search_path TO 'public'
 AS $function$
 BEGIN
     RETURN QUERY
@@ -1366,6 +1561,68 @@ $function$
 
 -- ============================================================
 
+CREATE OR REPLACE FUNCTION public.fn_reverse_payment(p_payment_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_payment  RECORD;
+  v_alloc    RECORD;
+  v_charge   RECORD;
+  v_new_paid NUMERIC(12,2);
+  v_undone   INTEGER := 0;
+BEGIN
+  IF p_reason IS NULL OR length(trim(p_reason)) = 0 THEN
+    RAISE EXCEPTION 'A reason is required to reverse a payment';
+  END IF;
+
+  SELECT payment_id, tenant_id, amount, payment_date, method
+  INTO v_payment FROM payments WHERE payment_id = p_payment_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Payment not found'; END IF;
+
+  FOR v_alloc IN
+    SELECT pa.charge_id, pa.allocated_amount
+    FROM payment_allocations pa
+    WHERE pa.payment_id = p_payment_id
+  LOOP
+    SELECT status, gross_amount, COALESCE(payment_amount, 0) AS paid, due_date
+    INTO v_charge FROM charge_records WHERE charge_id = v_alloc.charge_id FOR UPDATE;
+
+    v_new_paid := GREATEST(v_charge.paid - v_alloc.allocated_amount, 0);
+
+    UPDATE charge_records SET
+      payment_amount = CASE WHEN v_new_paid = 0 THEN NULL ELSE v_new_paid END,
+      payment_date   = CASE WHEN v_new_paid = 0 THEN NULL ELSE payment_date END,
+      status = CASE
+        WHEN v_charge.status IN ('CREDITED', 'WRITTEN_OFF') THEN v_charge.status
+        WHEN v_new_paid <= 0 THEN
+          CASE WHEN v_charge.due_date < CURRENT_DATE THEN 'OVERDUE' ELSE 'ISSUED' END::charge_status_enum
+        WHEN v_new_paid < v_charge.gross_amount THEN 'PART_PAID'::charge_status_enum
+        ELSE 'PAID'::charge_status_enum
+      END,
+      updated_at = now()
+    WHERE charge_id = v_alloc.charge_id;
+
+    v_undone := v_undone + 1;
+  END LOOP;
+
+  DELETE FROM payments WHERE payment_id = p_payment_id;
+
+  INSERT INTO tenant_activity (tenant_id, activity_type, summary)
+  VALUES (v_payment.tenant_id, 'SYSTEM',
+    'Payment of ' || TO_CHAR(v_payment.amount, 'FM999,990.00') || ' received ' ||
+    TO_CHAR(v_payment.payment_date, 'DD Mon YYYY') || ' (' || v_payment.method || ') reversed: ' ||
+    trim(p_reason));
+
+  RETURN jsonb_build_object('payment_id', p_payment_id, 'allocations_undone', v_undone);
+END;
+$function$
+
+
+-- ============================================================
+
 CREATE OR REPLACE FUNCTION public.fn_set_meter_active(p_meter_id uuid, p_active boolean)
  RETURNS boolean
  LANGUAGE plpgsql
@@ -1436,6 +1693,21 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'Lease not found'; END IF;
   IF v_old.lease_state = 'TERMINATED' THEN RAISE EXCEPTION 'Lease already terminated'; END IF;
 
+  IF p_termination_date > CURRENT_DATE THEN
+    UPDATE leases SET
+      termination_date   = p_termination_date,
+      termination_reason = p_reason::termination_reason_enum,
+      lease_state        = 'APPROACHING_EXPIRY',
+      updated_at = now()
+    WHERE lease_id = p_lease_id;
+
+    INSERT INTO tenant_activity (tenant_id, lease_id, activity_type, summary)
+    VALUES (v_old.tenant_id, p_lease_id, 'OTHER',
+      'Notice recorded: tenancy ends ' || TO_CHAR(p_termination_date, 'DD Mon YYYY') ||
+      ' (' || LOWER(p_reason) || '). Billing continues to the end date; final month pro-rata.');
+    RETURN true;
+  END IF;
+
   UPDATE leases SET
     lease_state = 'TERMINATED',
     termination_date = p_termination_date,
@@ -1444,7 +1716,6 @@ BEGIN
     updated_at = now()
   WHERE lease_id = p_lease_id;
 
-  -- Units become vacant; their meters stop billing (usage still tracked)
   UPDATE units SET unit_state = 'VACANT', vacancy_start_date = p_termination_date, updated_at = now()
   WHERE unit_id IN (SELECT unit_id FROM lease_units WHERE lease_id = p_lease_id);
 
@@ -1453,8 +1724,7 @@ BEGIN
 
   INSERT INTO tenant_activity (tenant_id, lease_id, activity_type, summary)
   VALUES (v_old.tenant_id, p_lease_id, 'OTHER',
-          'Tenancy ended ' || TO_CHAR(p_termination_date, 'DD Mon YYYY') || ' (' || LOWER(p_reason) || ')');
-
+    'Tenancy ended ' || TO_CHAR(p_termination_date, 'DD Mon YYYY') || ' (' || LOWER(p_reason) || ')');
   RETURN true;
 END;
 $function$
@@ -1466,6 +1736,7 @@ CREATE OR REPLACE FUNCTION public.fn_update_arrears()
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_count INTEGER;
@@ -1600,6 +1871,55 @@ BEGIN
           CASE WHEN p_vat_treatment IS NOT NULL THEN ' (VAT: ' || p_vat_treatment || ')' ELSE '' END ||
           CASE WHEN p_insurance_recharge IS NOT NULL THEN ' (insurance recharge: ' ||
             CASE WHEN p_insurance_recharge THEN 'yes' ELSE 'no' END || ')' ELSE '' END);
+  RETURN true;
+END;
+$function$
+
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.fn_update_meter(p_meter_id uuid, p_meter_reference text DEFAULT NULL::text, p_serial_number text DEFAULT NULL::text, p_unit_id uuid DEFAULT NULL::uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_meter RECORD;
+  v_unit  RECORD;
+  v_ref   text := NULLIF(TRIM(COALESCE(p_meter_reference, '')), '');
+BEGIN
+  SELECT * INTO v_meter FROM meters WHERE meter_id = p_meter_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Meter not found'; END IF;
+
+  IF v_ref IS NOT NULL AND v_ref <> v_meter.meter_reference THEN
+    IF EXISTS (SELECT 1 FROM meters m WHERE m.meter_reference = v_ref AND m.meter_id <> p_meter_id) THEN
+      RAISE EXCEPTION 'Meter reference % is already in use', v_ref;
+    END IF;
+    UPDATE meters SET meter_reference = v_ref, updated_at = now() WHERE meter_id = p_meter_id;
+  END IF;
+
+  IF p_serial_number IS NOT NULL THEN
+    UPDATE meters SET serial_number = NULLIF(TRIM(p_serial_number), ''), updated_at = now()
+    WHERE meter_id = p_meter_id;
+  END IF;
+
+  IF p_unit_id IS NOT NULL AND p_unit_id <> v_meter.unit_id THEN
+    SELECT u.unit_id, u.asset_id, u.block_id, u.unit_reference
+    INTO v_unit FROM units u WHERE u.unit_id = p_unit_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Target unit not found'; END IF;
+    IF v_unit.asset_id <> v_meter.asset_id THEN
+      RAISE EXCEPTION 'A meter can only be reassigned within the same asset';
+    END IF;
+    IF v_meter.active AND EXISTS (
+      SELECT 1 FROM meters m WHERE m.unit_id = p_unit_id AND m.active = TRUE AND m.meter_id <> p_meter_id
+    ) THEN
+      RAISE EXCEPTION 'Unit % already has an active meter', v_unit.unit_reference;
+    END IF;
+    UPDATE meters SET unit_id = p_unit_id, block_id = v_unit.block_id, updated_at = now()
+    WHERE meter_id = p_meter_id;
+  END IF;
+
   RETURN true;
 END;
 $function$
@@ -1757,36 +2077,6 @@ $function$
 
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.fn_update_tenant_details(p_tenant_id uuid, p_contact_name text DEFAULT NULL::text, p_contact_email text DEFAULT NULL::text, p_contact_phone text DEFAULT NULL::text, p_accounts_name text DEFAULT NULL::text, p_accounts_email text DEFAULT NULL::text, p_accounts_phone text DEFAULT NULL::text, p_emergency_name text DEFAULT NULL::text, p_emergency_phone text DEFAULT NULL::text, p_director_name text DEFAULT NULL::text, p_company_number text DEFAULT NULL::text, p_correspondence_address text DEFAULT NULL::text, p_preferred_delivery_method text DEFAULT NULL::text)
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-BEGIN
-  UPDATE tenants SET
-    primary_contact_name   = COALESCE(p_contact_name, primary_contact_name),
-    primary_contact_email  = COALESCE(p_contact_email, primary_contact_email),
-    primary_contact_phone  = COALESCE(p_contact_phone, primary_contact_phone),
-    accounts_contact_name  = COALESCE(p_accounts_name, accounts_contact_name),
-    accounts_contact_email = COALESCE(p_accounts_email, accounts_contact_email),
-    accounts_contact_phone = COALESCE(p_accounts_phone, accounts_contact_phone),
-    emergency_contact_name = COALESCE(p_emergency_name, emergency_contact_name),
-    emergency_contact_phone = COALESCE(p_emergency_phone, emergency_contact_phone),
-    director_name          = COALESCE(p_director_name, director_name),
-    company_number         = COALESCE(p_company_number, company_number),
-    correspondence_address = COALESCE(p_correspondence_address, correspondence_address),
-    preferred_delivery_method = COALESCE(p_preferred_delivery_method, preferred_delivery_method),
-    updated_at = now()
-  WHERE tenant_id = p_tenant_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Tenant not found'; END IF;
-  RETURN true;
-END;
-$function$
-
-
--- ============================================================
-
 CREATE OR REPLACE FUNCTION public.fn_update_tenant_details(p_tenant_id uuid, p_contact_name text DEFAULT NULL::text, p_contact_email text DEFAULT NULL::text, p_contact_phone text DEFAULT NULL::text, p_accounts_name text DEFAULT NULL::text, p_accounts_email text DEFAULT NULL::text, p_accounts_phone text DEFAULT NULL::text, p_emergency_name text DEFAULT NULL::text, p_emergency_phone text DEFAULT NULL::text, p_director_name text DEFAULT NULL::text, p_company_number text DEFAULT NULL::text, p_correspondence_address text DEFAULT NULL::text)
  RETURNS boolean
  LANGUAGE plpgsql
@@ -1806,6 +2096,40 @@ BEGIN
     director_name          = COALESCE(p_director_name, director_name),
     company_number         = COALESCE(p_company_number, company_number),
     correspondence_address = COALESCE(p_correspondence_address, correspondence_address),
+    updated_at = now()
+  WHERE tenant_id = p_tenant_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Tenant not found'; END IF;
+  RETURN true;
+END;
+$function$
+
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.fn_update_tenant_details(p_tenant_id uuid, p_contact_name text DEFAULT NULL::text, p_contact_email text DEFAULT NULL::text, p_contact_phone text DEFAULT NULL::text, p_accounts_name text DEFAULT NULL::text, p_accounts_email text DEFAULT NULL::text, p_accounts_phone text DEFAULT NULL::text, p_emergency_name text DEFAULT NULL::text, p_emergency_phone text DEFAULT NULL::text, p_director_name text DEFAULT NULL::text, p_company_number text DEFAULT NULL::text, p_correspondence_address text DEFAULT NULL::text, p_preferred_delivery_method text DEFAULT NULL::text, p_invoice_email_to text DEFAULT NULL::text, p_legal_name text DEFAULT NULL::text, p_trading_name text DEFAULT NULL::text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  UPDATE tenants SET
+    legal_name                = COALESCE(NULLIF(TRIM(COALESCE(p_legal_name, '')), ''), legal_name),
+    trading_name              = CASE WHEN p_trading_name IS NULL THEN trading_name
+                                     ELSE NULLIF(TRIM(p_trading_name), '') END,
+    primary_contact_name      = COALESCE(p_contact_name, primary_contact_name),
+    primary_contact_email     = COALESCE(p_contact_email, primary_contact_email),
+    primary_contact_phone     = COALESCE(p_contact_phone, primary_contact_phone),
+    accounts_contact_name     = COALESCE(p_accounts_name, accounts_contact_name),
+    accounts_contact_email    = COALESCE(p_accounts_email, accounts_contact_email),
+    accounts_contact_phone    = COALESCE(p_accounts_phone, accounts_contact_phone),
+    emergency_contact_name    = COALESCE(p_emergency_name, emergency_contact_name),
+    emergency_contact_phone   = COALESCE(p_emergency_phone, emergency_contact_phone),
+    director_name             = COALESCE(p_director_name, director_name),
+    company_number            = COALESCE(p_company_number, company_number),
+    correspondence_address    = COALESCE(p_correspondence_address, correspondence_address),
+    preferred_delivery_method = COALESCE(p_preferred_delivery_method, preferred_delivery_method),
+    invoice_email_to          = COALESCE(p_invoice_email_to, invoice_email_to),
     updated_at = now()
   WHERE tenant_id = p_tenant_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Tenant not found'; END IF;
@@ -1904,27 +2228,6 @@ $function$
 
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.mgmt_add_entry(p_site uuid, p_cc text, p_date date, p_code text, p_category text, p_account_group text, p_description text, p_supplier text, p_payor text, p_method text, p_invoice_no text, p_is_invoice boolean, p_net numeric, p_vat numeric, p_source text)
- RETURNS uuid
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'mgmt', 'public'
-AS $function$
-declare v_cc uuid; v_id uuid;
-begin
-  select cc_id into v_cc from mgmt.cost_centre where site_id=p_site and code=p_cc;
-  if v_cc is null then raise exception 'Unknown cost centre % for this property', p_cc; end if;
-  insert into mgmt.ledger(site_id,cc_id,entry_date,source_type,code,category,account_group,description,supplier,payor,method,invoice_no,is_invoice,net,vat,vat_rate,recoverable)
-  values (p_site,v_cc,p_date,coalesce(nullif(p_source,''),'CASH_REPORT'),nullif(p_code,''),p_category,p_account_group,p_description,p_supplier,
-          coalesce(nullif(p_payor,''),'Noblestone Partners'),coalesce(nullif(p_method,''),'CASH'),nullif(p_invoice_no,''),coalesce(p_is_invoice,false),
-          coalesce(p_net,0),coalesce(p_vat,0),case when coalesce(p_vat,0)>0 then 0.20 else 0 end, p_cc<>'INTERNAL')
-  returning ledger_id into v_id;
-  return v_id;
-end$function$
-
-
--- ============================================================
-
 CREATE OR REPLACE FUNCTION public.mgmt_add_entry(p_cc text, p_date date, p_code text, p_category text, p_account_group text, p_description text, p_supplier text, p_payor text, p_method text, p_invoice_no text, p_is_invoice boolean, p_net numeric, p_vat numeric, p_source text)
  RETURNS uuid
  LANGUAGE sql
@@ -1938,14 +2241,26 @@ $function$
 
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.mgmt_add_recurring(p_year integer, p_cc text, p_code text, p_account_group text, p_category text, p_supplier text, p_net numeric, p_vat numeric, p_invoice_prefix text, p_desc_template text)
+CREATE OR REPLACE FUNCTION public.mgmt_add_entry(p_site uuid, p_cc text, p_date date, p_code text, p_category text, p_account_group text, p_description text, p_supplier text, p_payor text, p_method text, p_invoice_no text, p_is_invoice boolean, p_net numeric, p_vat numeric, p_source text)
  RETURNS uuid
- LANGUAGE sql
+ LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'mgmt', 'public'
 AS $function$
-  select public.mgmt_add_recurring((select site_id from mgmt.site where site_name='Southgate Retail Park'),p_year,p_cc,p_code,p_account_group,p_category,p_supplier,p_net,p_vat,p_invoice_prefix,p_desc_template);
-$function$
+declare v_cc uuid; v_id uuid;
+begin
+  if p_date is null then raise exception 'A date is required.'; end if;
+  select cc_id into v_cc from mgmt.cost_centre where site_id=p_site and code=p_cc;
+  if v_cc is null then raise exception 'Unknown cost centre % for this property', p_cc; end if;
+  insert into mgmt.ledger(site_id,cc_id,entry_date,source_type,code,category,account_group,description,supplier,payor,method,invoice_no,is_invoice,net,vat,vat_rate,recoverable)
+  values (p_site,v_cc,p_date,coalesce(nullif(p_source,''),'CASH_REPORT'),nullif(p_code,''),p_category,p_account_group,p_description,p_supplier,
+          coalesce(nullif(p_payor,''),'Noblestone Partners'),coalesce(nullif(p_method,''),'CASH'),nullif(p_invoice_no,''),coalesce(p_is_invoice,false),
+          coalesce(p_net,0),coalesce(p_vat,0),
+          case when coalesce(p_net,0)>0 then round(coalesce(p_vat,0)/p_net,4) else 0 end,
+          p_cc<>'INTERNAL')
+  returning ledger_id into v_id;
+  return v_id;
+end$function$
 
 
 -- ============================================================
@@ -1963,6 +2278,18 @@ begin
   values(p_site,p_year,p_cc,nullif(p_code,''),p_account_group,p_category,p_supplier,'Noblestone Partners','TRANSFER',coalesce(p_net,0),coalesce(p_vat,0),p_invoice_prefix,p_desc_template,true,v_sort)
   returning rec_id into v_id; return v_id;
 end$function$
+
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.mgmt_add_recurring(p_year integer, p_cc text, p_code text, p_account_group text, p_category text, p_supplier text, p_net numeric, p_vat numeric, p_invoice_prefix text, p_desc_template text)
+ RETURNS uuid
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'mgmt', 'public'
+AS $function$
+  select public.mgmt_add_recurring((select site_id from mgmt.site where site_name='Southgate Retail Park'),p_year,p_cc,p_code,p_account_group,p_category,p_supplier,p_net,p_vat,p_invoice_prefix,p_desc_template);
+$function$
 
 
 -- ============================================================
@@ -1985,7 +2312,8 @@ begin
     v_inv:=coalesce(t.invoice_prefix,'')||to_char(v_date,'YY')||to_char(v_date,'MM');
     v_desc:=trim(replace(coalesce(t.desc_template,''),'{month}',trim(to_char(v_date,'Month'))));
     insert into mgmt.ledger(site_id,cc_id,entry_date,source_type,code,category,account_group,description,supplier,payor,method,invoice_no,is_invoice,net,vat,vat_rate,recoverable)
-      values(t.site_id,v_cc,v_date,'INVOICE',nullif(t.code,''),t.category,t.account_group,v_desc,t.supplier,coalesce(t.payor,'Noblestone Partners'),coalesce(t.method,'TRANSFER'),v_inv,true,t.net,t.vat,case when t.vat>0 then 0.20 else 0 end,(t.cc<>'INTERNAL'));
+      values(t.site_id,v_cc,v_date,'INVOICE',nullif(t.code,''),t.category,t.account_group,v_desc,t.supplier,coalesce(t.payor,'Noblestone Partners'),coalesce(t.method,'TRANSFER'),v_inv,true,t.net,t.vat,
+             case when t.net>0 then round(t.vat/t.net,4) else 0 end,(t.cc<>'INTERNAL'));
     v_n:=v_n+1;
   end loop; return v_n;
 end$function$
@@ -1993,13 +2321,33 @@ end$function$
 
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.mgmt_delete_entry(p_id uuid)
+CREATE OR REPLACE FUNCTION public.mgmt_delete_entry(p_id uuid, p_expected_updated_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'mgmt', 'public'
 AS $function$
-begin delete from mgmt.ledger where ledger_id=p_id; end$function$
+declare v_prev timestamptz; v_exists boolean;
+begin
+  select updated_at, true into v_prev, v_exists from mgmt.ledger where ledger_id=p_id;
+  if not coalesce(v_exists,false) then raise exception 'Ledger row not found'; end if;
+  if p_expected_updated_at is not null and v_prev is distinct from p_expected_updated_at then
+    raise exception 'This entry was changed by someone else since you opened it. Please refresh and try again.';
+  end if;
+  delete from mgmt.ledger where ledger_id=p_id;
+end$function$
+
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.mgmt_set_lock(p_year integer, p_full boolean, p_setup boolean)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'mgmt', 'public'
+AS $function$
+  select public.mgmt_set_lock((select site_id from mgmt.site where site_name='Southgate Retail Park'),p_year,p_full,p_setup);
+$function$
 
 
 -- ============================================================
@@ -2018,18 +2366,6 @@ end$function$
 
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.mgmt_set_lock(p_year integer, p_full boolean, p_setup boolean)
- RETURNS void
- LANGUAGE sql
- SECURITY DEFINER
- SET search_path TO 'mgmt', 'public'
-AS $function$
-  select public.mgmt_set_lock((select site_id from mgmt.site where site_name='Southgate Retail Park'),p_year,p_full,p_setup);
-$function$
-
-
--- ============================================================
-
 CREATE OR REPLACE FUNCTION public.mgmt_set_year_lock(p_site uuid, p_year integer, p_locked boolean)
  RETURNS void
  LANGUAGE plpgsql
@@ -2040,6 +2376,18 @@ begin
   insert into mgmt.year_lock(site_id,fin_year,locked,locked_at) values(p_site,p_year,p_locked,now())
   on conflict(site_id,fin_year) do update set locked=excluded.locked, locked_at=now();
 end$function$
+
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.mgmt_setup_year(p_from integer, p_to integer)
+ RETURNS text
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'mgmt', 'public'
+AS $function$
+  select public.mgmt_setup_year((select site_id from mgmt.site where site_name='Southgate Retail Park'),p_from,p_to);
+$function$
 
 
 -- ============================================================
@@ -2070,18 +2418,6 @@ end$function$
 
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.mgmt_setup_year(p_from integer, p_to integer)
- RETURNS text
- LANGUAGE sql
- SECURITY DEFINER
- SET search_path TO 'mgmt', 'public'
-AS $function$
-  select public.mgmt_setup_year((select site_id from mgmt.site where site_name='Southgate Retail Park'),p_from,p_to);
-$function$
-
-
--- ============================================================
-
 CREATE OR REPLACE FUNCTION public.mgmt_update_budget(p_id uuid, p_annual_net numeric, p_vat_rate numeric)
  RETURNS void
  LANGUAGE plpgsql
@@ -2104,22 +2440,27 @@ begin update mgmt.category set account_group=coalesce(p_account_group,account_gr
 
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.mgmt_update_entry(p_id uuid, p_cc text, p_date date, p_code text, p_category text, p_account_group text, p_description text, p_supplier text, p_payor text, p_method text, p_invoice_no text, p_net numeric, p_vat numeric, p_markup numeric DEFAULT 0)
+CREATE OR REPLACE FUNCTION public.mgmt_update_entry(p_id uuid, p_cc text, p_date date, p_code text, p_category text, p_account_group text, p_description text, p_supplier text, p_payor text, p_method text, p_invoice_no text, p_net numeric, p_vat numeric, p_markup numeric DEFAULT 0, p_expected_updated_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'mgmt', 'public'
 AS $function$
-declare v_site uuid; v_cc uuid;
+declare v_site uuid; v_cc uuid; v_prev timestamptz;
 begin
-  select site_id into v_site from mgmt.ledger where ledger_id=p_id;
+  if p_date is null then raise exception 'A date is required.'; end if;
+  select site_id, updated_at into v_site, v_prev from mgmt.ledger where ledger_id=p_id;
   if v_site is null then raise exception 'Ledger row not found'; end if;
+  if p_expected_updated_at is not null and v_prev is distinct from p_expected_updated_at then
+    raise exception 'This entry was changed by someone else since you opened it. Please refresh and try again.';
+  end if;
   select cc_id into v_cc from mgmt.cost_centre where site_id=v_site and code=p_cc;
   if v_cc is null then raise exception 'Unknown cost centre % for this property', p_cc; end if;
   update mgmt.ledger set cc_id=v_cc, entry_date=p_date, code=nullif(p_code,''), category=p_category, account_group=p_account_group,
     description=p_description, supplier=p_supplier, payor=coalesce(nullif(p_payor,''),'Noblestone Partners'),
     method=coalesce(nullif(p_method,''),'CASH'), invoice_no=nullif(p_invoice_no,''),
-    net=coalesce(p_net,0), vat=coalesce(p_vat,0), vat_rate=case when coalesce(p_vat,0)>0 then 0.20 else 0 end,
+    net=coalesce(p_net,0), vat=coalesce(p_vat,0),
+    vat_rate=case when coalesce(p_net,0)>0 then round(coalesce(p_vat,0)/p_net,4) else 0 end,
     markup=case when p_cc='SITE' then coalesce(p_markup,0) else 0 end, recoverable=(p_cc<>'INTERNAL')
   where ledger_id=p_id;
 end$function$
@@ -2152,6 +2493,7 @@ begin update mgmt.recurring set net=p_net,vat=p_vat,supplier=p_supplier,desc_tem
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
  RETURNS trigger
  LANGUAGE plpgsql
+ SET search_path TO 'public'
 AS $function$
 BEGIN
   NEW.updated_at = NOW();
