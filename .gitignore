@@ -49,3 +49,6 @@ seed.sql
 
 # data backups (tenant personal data + bank references — never commit)
 /Backups/
+
+# rendered invoice samples (tenant data + bank details — never commit)
+sample-*.pdf

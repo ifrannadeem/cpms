@@ -47,6 +47,19 @@ export interface InvoiceData {
     consumption: number
     ratePerKwh: number
   }
+  /** Present only on a full month billed under a fixed rent concession. Lets the
+   *  invoice show headline rent less the concession, so the tenant is never
+   *  surprised when it ends. Omitted for rent-free months and part months, where
+   *  the arithmetic would not read cleanly. */
+  concession?: {
+    headlineNet: number
+    headlineVat: number
+    headlineGross: number
+    discountNet: number
+    discountVat: number
+    discountGross: number
+    endDate: string | null
+  }
 }
 
 const MONTH_LONG: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' }
@@ -110,6 +123,53 @@ function propertyCode(refs: string[]): string {
  * units sharing a number produced the same reference (five collisions in August 2026).
  * References already stamped on issued invoices keep their original form.
  */
+/**
+ * Concession lines start with the September 2026 run. August invoices were already
+ * issued (and Southgate's already sent), so they must keep rendering exactly as the
+ * tenant received them.
+ */
+export const CONCESSION_FROM = '2026-09-01'
+
+export interface IncentiveRow {
+  incentive_type: string
+  discount_amount_monthly: string | number | null
+  billed_amount_monthly: string | number | null
+  incentive_end_date: string | null
+}
+
+/**
+ * Headline-less-concession breakdown for a rent invoice, or undefined if the
+ * invoice should print unchanged. Deliberately narrow: only a full month billed at
+ * exactly the discounted figure qualifies. Rent-free months, part months and
+ * manually adjusted invoices are left alone, because the two lines would not add up
+ * to the total on the page.
+ */
+export function concessionFor(
+  periodStart: string,
+  net: number,
+  vat: number,
+  gross: number,
+  vatRate: number,
+  inc: IncentiveRow | undefined,
+): InvoiceData['concession'] {
+  if (!inc || periodStart < CONCESSION_FROM) return undefined
+  if (inc.incentive_type !== 'FIXED_DISCOUNT') return undefined
+  const discountNet = Number(inc.discount_amount_monthly ?? 0)
+  const billed = Number(inc.billed_amount_monthly ?? 0)
+  if (!(discountNet > 0) || !(net > 0) || Math.abs(net - billed) >= 0.005) return undefined
+
+  const discountVat = Math.round(discountNet * vatRate * 100) / 100
+  return {
+    headlineNet: net + discountNet,
+    headlineVat: vat + discountVat,
+    headlineGross: gross + discountNet + discountVat,
+    discountNet,
+    discountVat,
+    discountGross: discountNet + discountVat,
+    endDate: inc.incentive_end_date ?? null,
+  }
+}
+
 export function buildReference(kind: string, periodStart: string, periodEnd: string, refs: string[]): string {
   const prop = propertyCode(refs)
   const code = prop ? `${prop}-${unitCode(refs)}` : unitCode(refs)
@@ -172,6 +232,13 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
     vatByLeaseType.set(`${p.lease_id}:${p.charge_type}`, p.vat_treatment)
   }
 
+  // Active fixed-discount concessions, to show headline-less-concession on rent invoices
+  const { data: incentives } = await supabase
+    .from('rent_incentives')
+    .select('lease_id, incentive_type, discount_amount_monthly, billed_amount_monthly, incentive_start_date, incentive_end_date')
+    .in('lease_id', leaseIds)
+    .eq('active', true)
+
   // Electric: closing reads linked to charges (opening = closing - consumption)
   const { data: closeReads } = await supabase
     .from('meter_reads')
@@ -228,6 +295,14 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
       }
     }
 
+    const inc = kind === 'RENT'
+      ? (incentives ?? []).find(i =>
+          i.lease_id === c.lease_id &&
+          (!i.incentive_start_date || i.incentive_start_date <= c.period_start) &&
+          (!i.incentive_end_date || i.incentive_end_date >= c.period_start))
+      : undefined
+    const concession = concessionFor(c.period_start, net, vat, gross, parseFloat(c.vat_rate ?? '0'), inc)
+
     const description =
       kind === 'RENT'
         ? `Rent – Monthly in Advance\n${monthLabel(c.period_start)}`
@@ -259,6 +334,7 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
       paidAmount: paid,
       amountDue: Math.max(gross - paid, 0),
       electric,
+      concession,
     }
   })
 

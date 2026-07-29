@@ -56,6 +56,14 @@ verbatim thereafter (once migration `20260704120200` is applied).
   ends** (2026-07-26): a tenancy starting and/or ending mid-month bills the days
   occupied, both ends inclusive, over the days in that month. Preview and Generate
   share this rule, so the dry run matches what gets created.
+- **Rent concessions print on the invoice from the September 2026 run.** Where a
+  fixed discount is live, the rent line shows the headline and a second line shows
+  the reduction with its end date, so a tenant is never surprised when it reverts.
+  Deliberately narrow (`concessionFor` in lib/invoice-data.ts): only a full month
+  billed at exactly the discounted figure qualifies — rent-free, part months and
+  adjusted invoices print unchanged, because the two lines would not reconcile to
+  the total. Held to September so August, already issued and sent, still renders as
+  the tenant received it.
 - **Two tenant names, deliberately separated** (owner decision 2026-07-26).
   `legal_name` is the party liable under the lease and is the ONLY name that appears
   on an invoice or its filename — a brand must never appear on a demand for payment,

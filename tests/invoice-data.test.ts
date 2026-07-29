@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildReference,
+  concessionFor,
   invoiceFileName,
   premisesLabel,
   unitCode,
+  type IncentiveRow,
   type InvoiceData,
 } from '../lib/invoice-data'
 
@@ -66,6 +68,55 @@ describe('buildReference', () => {
 
   it('carries the property code on Southgate suites too', () => {
     expect(buildReference('RENT', '2026-09-01', '2026-09-30', ['SGP-I-1.5'])).toBe('R2609-SGP-U8S1.5')
+  })
+})
+
+describe('concessionFor', () => {
+  // Workshop 4: £450 headline, £100 concession to 31 Jul 2027, billed £350 + VAT
+  const discount: IncentiveRow = {
+    incentive_type: 'FIXED_DISCOUNT',
+    discount_amount_monthly: 100,
+    billed_amount_monthly: 350,
+    incentive_end_date: '2027-07-31',
+  }
+
+  it('shows headline less concession on a full discounted month', () => {
+    const c = concessionFor('2026-09-01', 350, 70, 420, 0.2, discount)
+    expect(c).toEqual({
+      headlineNet: 450, headlineVat: 90, headlineGross: 540,
+      discountNet: 100, discountVat: 20, discountGross: 120,
+      endDate: '2027-07-31',
+    })
+  })
+
+  it('is held back before the September 2026 run', () => {
+    expect(concessionFor('2026-08-01', 350, 70, 420, 0.2, discount)).toBeUndefined()
+  })
+
+  it('stays off a part month, where the two lines would not add up', () => {
+    // pro-rata month: net no longer equals the discounted monthly figure
+    expect(concessionFor('2026-09-01', 175, 35, 210, 0.2, discount)).toBeUndefined()
+  })
+
+  it('stays off rent-free months', () => {
+    const rentFree: IncentiveRow = {
+      incentive_type: 'RENT_FREE', discount_amount_monthly: 450,
+      billed_amount_monthly: 0, incentive_end_date: '2026-12-31',
+    }
+    expect(concessionFor('2026-09-01', 0, 0, 0, 0.2, rentFree)).toBeUndefined()
+  })
+
+  it('handles a non-VAT concession', () => {
+    const c = concessionFor('2026-09-01', 375, 0, 375, 0, {
+      incentive_type: 'FIXED_DISCOUNT', discount_amount_monthly: 25,
+      billed_amount_monthly: 375, incentive_end_date: '2027-03-31',
+    })
+    expect(c?.headlineGross).toBe(400)
+    expect(c?.discountVat).toBe(0)
+  })
+
+  it('is absent when there is no concession', () => {
+    expect(concessionFor('2026-09-01', 450, 90, 540, 0.2, undefined)).toBeUndefined()
   })
 })
 

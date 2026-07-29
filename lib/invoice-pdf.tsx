@@ -15,6 +15,16 @@ function kwh(n: number): string {
   return n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+/** Reductions print as -£100.00 so the column still reads as money. */
+function neg(n: number): string {
+  return n > 0 ? '-' + gbp(n) : gbp(n)
+}
+
+/** "Rent concession to 31 July 2027" — the end date is the point of showing it. */
+function concessionLabel(endDate: string | null): string {
+  return endDate ? `Rent concession to ${fmtLongDate(endDate)}` : 'Rent concession'
+}
+
 const s = StyleSheet.create({
   page: { paddingTop: 36, paddingBottom: 48, paddingHorizontal: 48, fontSize: 9.5, fontFamily: 'Helvetica', color: '#111' },
 
@@ -195,14 +205,26 @@ function RentPage({ inv }: { inv: InvoiceData }) {
             <Text style={[s.cVat, s.bold]}>VAT</Text>
             <Text style={[s.cTotal, s.bold]}>Total</Text>
           </View>
+          {/* Under a concession the first line carries the headline rent and a second
+              line shows the reduction, so the total still reconciles to what is due. */}
           <View style={s.tr}>
             <Text style={s.cDate}>{fmtLongDate(inv.invoiceDate)}</Text>
             <Text style={s.cDesc}>{inv.description}</Text>
-            <Text style={s.cNet}>{gbp(inv.netAmount)}</Text>
+            <Text style={s.cNet}>{gbp(inv.concession ? inv.concession.headlineNet : inv.netAmount)}</Text>
             <Text style={s.cVatRate}>{vatRateLabel(inv)}</Text>
-            <Text style={s.cVat}>{gbp(inv.vatAmount)}</Text>
-            <Text style={s.cTotal}>{gbp(inv.grossAmount)}</Text>
+            <Text style={s.cVat}>{gbp(inv.concession ? inv.concession.headlineVat : inv.vatAmount)}</Text>
+            <Text style={s.cTotal}>{gbp(inv.concession ? inv.concession.headlineGross : inv.grossAmount)}</Text>
           </View>
+          {inv.concession ? (
+            <View style={s.tr}>
+              <Text style={s.cDate}></Text>
+              <Text style={s.cDesc}>{concessionLabel(inv.concession.endDate)}</Text>
+              <Text style={s.cNet}>{neg(inv.concession.discountNet)}</Text>
+              <Text style={s.cVatRate}></Text>
+              <Text style={s.cVat}>{neg(inv.concession.discountVat)}</Text>
+              <Text style={s.cTotal}>{neg(inv.concession.discountGross)}</Text>
+            </View>
+          ) : null}
           <View style={s.totalsRow}>
             <Text style={[s.cDate]}></Text>
             <Text style={[s.cDesc, s.bold]}>Total</Text>
@@ -224,8 +246,16 @@ function RentPage({ inv }: { inv: InvoiceData }) {
             <Text style={s.nDate}>{fmtLongDate(inv.invoiceDate)}</Text>
             <Text style={s.nDesc}>{inv.description}</Text>
             <Text style={s.nPaid}>{gbp(inv.paidAmount)}</Text>
-            <Text style={s.nDue}>{gbp(inv.amountDue)}</Text>
+            <Text style={s.nDue}>{gbp(inv.concession ? inv.concession.headlineGross : inv.amountDue)}</Text>
           </View>
+          {inv.concession ? (
+            <View style={s.tr}>
+              <Text style={s.nDate}></Text>
+              <Text style={s.nDesc}>{concessionLabel(inv.concession.endDate)}</Text>
+              <Text style={s.nPaid}></Text>
+              <Text style={s.nDue}>{neg(inv.concession.discountGross)}</Text>
+            </View>
+          ) : null}
         </View>
       )}
 
