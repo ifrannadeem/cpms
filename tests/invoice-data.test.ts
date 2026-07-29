@@ -49,11 +49,23 @@ describe('premisesLabel', () => {
 
 describe('buildReference', () => {
   it('anchors rent to the period_start month', () => {
-    expect(buildReference('RENT', '2026-06-01', '2026-06-30', ['RBC-001-012'])).toBe('R2606-U12')
+    expect(buildReference('RENT', '2026-06-01', '2026-06-30', ['RBC-001-012'])).toBe('R2606-RBC-U12')
   })
 
   it('anchors electric to the period_end month', () => {
-    expect(buildReference('ELECTRIC', '2026-05-15', '2026-06-14', ['RBC-001-012'])).toBe('2606E-U12')
+    expect(buildReference('ELECTRIC', '2026-05-15', '2026-06-14', ['RBC-001-012'])).toBe('2606E-RBC-U12')
+  })
+
+  it('keeps the same unit number distinct across properties', () => {
+    const rosehill = buildReference('RENT', '2026-09-01', '2026-09-30', ['RBC-A-10'])
+    const peartree = buildReference('RENT', '2026-09-01', '2026-09-30', ['PTP-10'])
+    expect(rosehill).toBe('R2609-RBC-U10')
+    expect(peartree).toBe('R2609-PTP-U10')
+    expect(rosehill).not.toBe(peartree)
+  })
+
+  it('carries the property code on Southgate suites too', () => {
+    expect(buildReference('RENT', '2026-09-01', '2026-09-30', ['SGP-I-1.5'])).toBe('R2609-SGP-U8S1.5')
   })
 })
 

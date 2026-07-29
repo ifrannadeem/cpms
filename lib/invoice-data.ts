@@ -99,8 +99,20 @@ export function premisesLabel(refs: string[]): string {
   return nums.length > 1 ? `Units ${nums[0]} - ${nums[nums.length - 1]}` : `Unit ${nums[0]}`
 }
 
+/** Property code from the unit reference prefix: RBC-A-10 -> RBC, PTP-9 -> PTP, SGP-I-1.5 -> SGP. */
+function propertyCode(refs: string[]): string {
+  return (refs[0] ?? '').split('-')[0] ?? ''
+}
+
+/**
+ * R2609-RBC-U10 / 2609E-RBC-U10.
+ * The property code was added from September 2026: without it, Rosehill and Peartree
+ * units sharing a number produced the same reference (five collisions in August 2026).
+ * References already stamped on issued invoices keep their original form.
+ */
 export function buildReference(kind: string, periodStart: string, periodEnd: string, refs: string[]): string {
-  const code = unitCode(refs)
+  const prop = propertyCode(refs)
+  const code = prop ? `${prop}-${unitCode(refs)}` : unitCode(refs)
   if (kind === 'ELECTRIC') return `${yymm(periodEnd)}E-${code}`
   return `R${yymm(periodStart)}-${code}`
 }
