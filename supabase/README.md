@@ -55,6 +55,8 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 
 | `20260826110000_suite_2_4_electric_vat_standard.sql` | Suite 2.4's ELECTRIC charge profile corrected from EXEMPT to STANDARD; electricity is a standard-rated recharge for everyone. Inert in effect — nothing reads vat_treatment on an ELECTRIC row | **APPLIED 2026-08-26**, verified |
 
+| `20260826120000_rosehill_electric_vat_standard.sql` | The remaining 21 Rosehill ELECTRIC profiles corrected to STANDARD (18 VAT_DEFERRED, 3 EXEMPT). RBC-A-21 (2i's own occupation, never charged) deliberately left OUTSIDE_SCOPE | **APPLIED 2026-08-26**, verified: 21 rows; every ELECTRIC profile now STANDARD bar that one |
+
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 
 ## Shared project — read before touching anything

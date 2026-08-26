@@ -40,10 +40,12 @@ block are on the *rent* page only); the lease screen shows the RENT profile; the
 report sums `charge_records.vat_amount`. So a wrong flag there has never produced a wrong
 invoice, figure or return.
 
-**Still open:** 22 Rosehill ELECTRIC profiles disagree with that policy in the same inert
-way — 18 `VAT_DEFERRED`, 3 `EXEMPT`, 1 `OUTSIDE_SCOPE`. Suite 2.4 was corrected to
-STANDARD on 26 August; the Rosehill 22 await a decision. Worth doing before anyone wires
-the field into the electric path, at which point 22 leases would start billing wrongly.
+The profiles have been brought into line: Suite 2.4 and 21 Rosehill tenancies (18
+`VAT_DEFERRED`, 3 `EXEMPT`) corrected to STANDARD on 26 August. **One deliberate
+exception:** `RBC-A-21`, 2i Investments' own occupation of its own unit, stays
+`OUTSIDE_SCOPE` — it has no active meter, has never been charged for electricity, and is
+not a tenant paying a recharge. Every ELECTRIC profile in the system is now STANDARD
+except that one. No rent profile was touched; rent VAT is per lease and unchanged.
 
 ## Where things stood — 29 July 2026
 
