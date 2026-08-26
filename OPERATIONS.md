@@ -15,11 +15,11 @@ had been created, because *Let Unit(s)* makes a new tenant every time; they were
 on 26 August. Rent and electric therefore now combine into one email per cycle, with a
 block and an attachment per suite and a single total, as Giara's do.
 
-**Outstanding on this:**
-- The two August part-month rent drafts (£356.45 and £246.77) are generated and correct
-  but **not yet approved, issued or sent**.
-- Ambitions' £302.71 receipt still needs entering on Rent: Payments — their row is now
-  there, badged *Ended*.
+Ambitions' £302.71 was received by bank transfer on 11 August and is recorded; their
+invoice is PAID and their row has dropped off the payment grid, as intended.
+
+**Outstanding on this:** the two August part-month rent drafts (£356.45 and £246.77) are
+generated and correct but **not yet approved, issued or sent**.
 
 **Live from 26 August** (code needs pushing before the invoice side takes effect):
 - A part-month rent invoice prints the period it bills (15 to 31 August) and says
@@ -28,9 +28,22 @@ block and an attachment per suite and a single total, as Giara's do.
   pro-rated draft to a full month with nothing on screen to show it.
 - Correspondence address is required when letting a unit.
 
-**Still open:** Suite 2.4's electric charge profile is set EXEMPT while electric is
-charged at 20% (which is correct — the landlord pays VAT and passes it on). The profile
-flag makes the invoice print "Exempt" in the VAT column. One-row fix, awaiting a decision.
+**Electricity is standard-rated for everyone** (owner confirmation 2026-08-26). It is a
+recharge at cost of a supply the landlord was itself charged VAT on, and the utility
+gives no concession, so there is nothing to pass on. All 78 electric charges ever raised
+carry 20%, and always have.
+
+`charge_profiles.vat_treatment` on an **ELECTRIC** row is dead data — nothing reads it.
+The charge is raised at a hardcoded 20% by `fn_record_meter_reading`; the electric page
+of the invoice prints "VAT 20%" from its own layout (`vatRateLabel` and the VAT-invoice
+block are on the *rent* page only); the lease screen shows the RENT profile; the VAT
+report sums `charge_records.vat_amount`. So a wrong flag there has never produced a wrong
+invoice, figure or return.
+
+**Still open:** 22 Rosehill ELECTRIC profiles disagree with that policy in the same inert
+way — 18 `VAT_DEFERRED`, 3 `EXEMPT`, 1 `OUTSIDE_SCOPE`. Suite 2.4 was corrected to
+STANDARD on 26 August; the Rosehill 22 await a decision. Worth doing before anyone wires
+the field into the electric path, at which point 22 leases would start billing wrongly.
 
 ## Where things stood — 29 July 2026
 

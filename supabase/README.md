@@ -53,6 +53,8 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 | `20260826100300_merge_al_hurraya_tenant_records.sql` | One-off: three duplicate Al-Hurraya tenant records merged into the one holding the Suite 2.4 history; legal name corrected, address and invoice recipient filled in | **APPLIED 2026-08-26**, verified: one record, four suites, 6 charges and 3 payments intact |
 | `20260826100400_regenerate_drafts_prorata.sql` | fn_regenerate_asset_draft_charges had no pro-rata and reset a part-month draft to a full month; now shares the Preview/Generate rule and stamps billed_from / billed_to | **APPLIED 2026-08-26**, verified: refreshing the August Southgate drafts leaves 356.45 and 246.77 unchanged |
 
+| `20260826110000_suite_2_4_electric_vat_standard.sql` | Suite 2.4's ELECTRIC charge profile corrected from EXEMPT to STANDARD; electricity is a standard-rated recharge for everyone. Inert in effect — nothing reads vat_treatment on an ELECTRIC row | **APPLIED 2026-08-26**, verified |
+
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 
 ## Shared project — read before touching anything
