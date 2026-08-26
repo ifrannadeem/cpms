@@ -33,6 +33,25 @@ Note the cycle runs 25 July to 24 August for ten meters and 26 July to 24 August
 Suite 2.5, whose meter was only installed on 26 July. That is correct, and each invoice
 carries its own dates.
 
+**Rosehill is live on email from 26 August.** `ASSET-001` is in `DISPATCH_LIVE_ASSETS`
+alongside `ASSET-003`, and Rosehill sends from its own mailbox,
+`2iinvestmentsltd@gmail.com` (`SMTP_USER_ASSET_001` / `SMTP_PASS_ASSET_001`, app password
+named "Opera"). Southgate is unchanged on `noblestoneltd@gmail.com` via the shared
+`SMTP_USER` / `SMTP_PASS`. The same address is now on Rosehill's letterhead, so the
+invoice and the sending mailbox agree. Peartree stays manual.
+
+Before go-live: August's 34 Rosehill rent invoices were marked as sent (Email, 26 Aug) —
+they had been sent by hand and never recorded, so **Send all unsent** would otherwise
+have re-emailed 33 tenants, seventeen of whom had already paid. Check that before taking
+any future asset live.
+
+All 34 Rosehill tenancies now have a real invoice recipient. **Eight route to
+`taz.nadeem@yahoo.co.uk` as an interim relay** — RBC-A-4, A-5, A-8, A-B, A-21, B-25,
+B-26, B-30 — because those tenants have supplied no email; Taz forwards hard copies and
+so knows who has not been reached electronically. A-21 is 2i's own unit and is never
+billed (`applies = false`), so seven billed tenancies are actually affected. Replace each
+as a real address arrives.
+
 **Live from 26 August** (code needs pushing before the invoice side takes effect):
 - A part-month rent invoice prints the period it bills (15 to 31 August) and says
   "part month, 17 of 31 days". Invoices already issued are untouched.
@@ -75,7 +94,8 @@ and do not mistake them for faults:
 - *Southgate 2.5/2.6/2.7*: settled on different terms from those planned here — see the
   26 August entry above. The plan to cancel Ambitions' August invoice was overtaken: the
   letting completed from 15 August, not 1 August, and their invoice stands.
-- *Rosehill email go-live, September*: **still entirely outstanding as at 26 August.**
+- *Rosehill email go-live*: **done 26 August** — see the entry at the top. Superseded.
+  Original note: **still entirely outstanding as at 26 August.**
   Needs (a) real invoice recipients on every Rosehill tenancy — all 34 are still
   `…@placeholder.tbc` and none has an *Invoice recipients* entry, including all three
   Maher records; (b) a decision on whether Rosehill sends from its own mailbox, which needs
