@@ -46,20 +46,16 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 | `20260726100000_meter_admin.sql` | meters.serial_number; fn_add_meter (registers a meter + baseline reading, no charge); fn_update_meter (rename, serial, reassign unit keeping read history) | **APPLIED 2026-07-26**. One-off: MTR-SGP-2.5-2.6 moved to Suite 2.6, renamed MTR-SGP-2.6, reactivated (3 reads, 1374.00 at 2026-07-25 preserved); MTR-SGP-2.5 added (serial EML2606767285, 5 digits, baseline 11.46 at 2026-07-26). |
 | `20260726150000_editable_tenant_names.sql` | fn_update_tenant_details gains p_legal_name / p_trading_name so both names are maintainable (legal name cannot be blanked; empty trading name clears it) | **APPLIED 2026-07-26** |
 | `20260726120000_part_month_prorata.sql` | Commencement pro-rata added to fn_generate_asset_rent_charges (was final-month only); fn_preview_asset_rent_charges given the same rule — it previously had **no** pro-rata, so Preview and Generate disagreed | **APPLIED 2026-07-26**, verified: Suite 2.7 previews at 252.26 matching Generate. |
-
 | `20260826100000_billed_period_on_rent_charges.sql` | charge_records.billed_from / billed_to, stamped by fn_generate_asset_rent_charges and exposed in v_charge_ledger, so a part-month invoice can print the period it actually bills | **APPLIED 2026-08-26**, verified: Suites 2.5/2.6 render 15 to 31 August |
 | `20260826100100_payment_grid_ended_tenancies.sql` | v_payment_grid admits a TERMINATED lease while it still owes rent, and gains `ended`; a departed tenant's final payment can now be recorded | **APPLIED 2026-08-26**, verified: Ambitions Personnel appears, Ridge View (settled) does not |
 | `20260826100200_let_unit_correspondence_address.sql` | fn_let_unit gains p_correspondence_address (old 16-arg signature dropped to avoid ambiguity); the form makes it required | **APPLIED 2026-08-26** |
 | `20260826100300_merge_al_hurraya_tenant_records.sql` | One-off: three duplicate Al-Hurraya tenant records merged into the one holding the Suite 2.4 history; legal name corrected, address and invoice recipient filled in | **APPLIED 2026-08-26**, verified: one record, four suites, 6 charges and 3 payments intact |
 | `20260826100400_regenerate_drafts_prorata.sql` | fn_regenerate_asset_draft_charges had no pro-rata and reset a part-month draft to a full month; now shares the Preview/Generate rule and stamps billed_from / billed_to | **APPLIED 2026-08-26**, verified: refreshing the August Southgate drafts leaves 356.45 and 246.77 unchanged |
-
 | `20260826110000_suite_2_4_electric_vat_standard.sql` | Suite 2.4's ELECTRIC charge profile corrected from EXEMPT to STANDARD; electricity is a standard-rated recharge for everyone. Inert in effect — nothing reads vat_treatment on an ELECTRIC row | **APPLIED 2026-08-26**, verified |
-
 | `20260826120000_rosehill_electric_vat_standard.sql` | The remaining 21 Rosehill ELECTRIC profiles corrected to STANDARD (18 VAT_DEFERRED, 3 EXEMPT). RBC-A-21 (2i's own occupation, never charged) deliberately left OUTSIDE_SCOPE | **APPLIED 2026-08-26**, verified: 21 rows; every ELECTRIC profile now STANDARD bar that one |
-
 | `20260826130000_fix_clear_meter_reading.sql` | fn_delete_meter_reading deleted the charge before the meter_reads row that referenced it, so Clear always failed on a reading that had raised a charge (FK `meter_reads_charge_id_fkey`). Order reversed | **APPLIED 2026-08-26**, verified: the 11 mis-dated Southgate August readings cleared through it |
-
 | `20260826140000_apply_tenant_credit.sql` | v_tenant_credit (unallocated money held per tenant/asset/charge type) + fn_apply_tenant_credit, which sets it against a lease's outstanding charges oldest-first as real payment_allocations rows, so Reverse still unwinds it | **APPLIED 2026-08-26**, verified end-to-end in a rolled-back transaction |
+| `20260826150000_rosehill_letterhead_email.sql` | 2i Investments (Rosehill's issuing entity) had no email on record, so Rosehill invoices printed no contact details; set to 2iinvestmentsltd@gmail.com, matching the mailbox Rosehill sends from | **APPLIED 2026-08-26**, verified |
 
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 
