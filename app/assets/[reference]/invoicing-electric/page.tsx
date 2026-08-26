@@ -61,7 +61,12 @@ export default async function InvoicingElectricPage({ params }: Props) {
     unit_reference: (c.unit_reference ?? '') as string,
     tenant_name: (c.tenant_name ?? '') as string,
     charge_label: (c.charge_label ?? '') as string,
-    period: String(c.period_start ?? ''),          // period key = period_start (a reading cycle)
+    // Cycle key = period_end, the date the meters were read. period_start is the meter's
+    // PREVIOUS reading date, which legitimately differs between meters (one installed
+    // mid-cycle, one read a day apart), so keying on it split a single run into several
+    // "cycles" and hid most of the charges behind the dropdown.
+    period: String(c.period_end ?? ''),
+    period_start: String(c.period_start ?? ''),
     period_end: String(c.period_end ?? ''),
     net_amount: Number(c.net_amount ?? 0),
     vat_amount: Number(c.vat_amount ?? 0),

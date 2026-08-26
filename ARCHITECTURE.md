@@ -88,6 +88,14 @@ verbatim thereafter (once migration `20260704120200` is applied).
 - Rent-free ending mid-month zeroes the whole month (no pro-rating) unless a
   `rent_incentives` row says otherwise.
 - Meter rollover is handled manually ("put a 1 in front") by owner preference.
+- **An electric reading cycle is keyed on the date the meters were read** (`period_end`),
+  not on `period_start` (2026-08-26). A charge's `period_start` is that meter's *previous*
+  reading date, which legitimately differs between meters in the same run — a meter
+  installed mid-cycle, or one read a day apart. Keying on it split a single run into
+  several "cycles" on Electric: Invoicing and hid most of the charges behind the dropdown,
+  while the Approve and Issue buttons (which act asset-wide) reported the full count. The
+  cycle label shows the earliest opening date; each invoice still carries its own exact
+  period.
 - Southgate is invoiced like a landlord asset even though 2i is only agent; its income
   is excluded from owned-portfolio figures via `income_owned = false`.
 - 2i Investments and As-Siraat have `applies = false` charge profiles — never billed.

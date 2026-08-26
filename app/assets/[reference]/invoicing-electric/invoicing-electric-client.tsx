@@ -50,7 +50,10 @@ export interface ElectricRow {
   unit_reference: string
   tenant_name: string
   charge_label: string
+  /** Cycle key: the date the meters were read (period_end). */
   period: string
+  /** This meter's previous reading date. Varies within a cycle, so it is display only. */
+  period_start: string
   period_end: string
   net_amount: number
   vat_amount: number
@@ -76,12 +79,24 @@ export default function ElectricInvoicingClient({ assetId, assetReference, elect
   const [sentDate, setSentDate]     = useState(() => new Date().toISOString().slice(0, 10))
   const [pending, setPending] = useState<{ title: string; message: string; confirmLabel: string; act: () => void } | null>(null)
 
-  // Distinct reading cycles, newest first
+  // Distinct reading cycles, newest first. A cycle is the date the meters were read;
+  // the opening date can differ between meters within it.
   const periods = Array.from(new Set(electricRows.map(r => r.period))).filter(Boolean).sort().reverse()
   const [period, setPeriod] = useState(periods[0] ?? '')
 
   const periodRows = electricRows.filter(r => r.period === period)
   const periodEnd  = periodRows[0]?.period_end ?? ''
+
+  /** Earliest opening date in a cycle, for the label. Each invoice still carries its own
+   *  exact period, so a meter that opened a day later reads correctly on its own PDF. */
+  function cycleStart(cycle: string): string {
+    return electricRows
+      .filter(r => r.period === cycle)
+      .map(r => r.period_start)
+      .filter(Boolean)
+      .sort()[0] ?? ''
+  }
+  const periodStart = cycleStart(period)
 
   const periodDraft    = periodRows.filter(r => r.status === 'DRAFT').length
   const periodApproved = periodRows.filter(r => r.status === 'APPROVED').length
@@ -157,10 +172,9 @@ export default function ElectricInvoicingClient({ assetId, assetReference, elect
             <label className="block text-xs text-slate-500 mb-1.5">Reading cycle</label>
             <select value={period} onChange={e => { setPeriod(e.target.value); setMessage(null) }}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300">
-              {periods.map(p => {
-                const pe = electricRows.find(r => r.period === p)?.period_end ?? ''
-                return <option key={p} value={p}>{periodLabel(p, pe)}</option>
-              })}
+              {periods.map(p => (
+                <option key={p} value={p}>{periodLabel(cycleStart(p), p)}</option>
+              ))}
             </select>
           </div>
 
@@ -186,7 +200,7 @@ export default function ElectricInvoicingClient({ assetId, assetReference, elect
         </div>
 
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-          <span className="font-medium text-slate-600">{periodLabel(period, periodEnd)}:</span>
+          <span className="font-medium text-slate-600">{periodLabel(periodStart, periodEnd)}:</span>
           <span>{periodDraft} draft</span>
           <span>{periodApproved} approved</span>
           <span>{periodIssued} issued</span>
@@ -202,7 +216,7 @@ export default function ElectricInvoicingClient({ assetId, assetReference, elect
       {/* Review table */}
       <div className="rounded-xl border border-slate-200 overflow-hidden">
         <div className="bg-slate-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200">
-          <h3 className="text-sm font-semibold text-slate-700">{periodLabel(period, periodEnd)} {DASH} {periodRows.length} charge{periodRows.length !== 1 ? 's' : ''}</h3>
+          <h3 className="text-sm font-semibold text-slate-700">{periodLabel(periodStart, periodEnd)} {DASH} {periodRows.length} charge{periodRows.length !== 1 ? 's' : ''}</h3>
           <div className="flex gap-x-5 text-xs text-slate-600">
             <span>Net {fmt(totals.net)}</span>
             <span>VAT {fmt(totals.vat)}</span>
