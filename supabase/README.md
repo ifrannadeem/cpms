@@ -57,6 +57,8 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 
 | `20260826120000_rosehill_electric_vat_standard.sql` | The remaining 21 Rosehill ELECTRIC profiles corrected to STANDARD (18 VAT_DEFERRED, 3 EXEMPT). RBC-A-21 (2i's own occupation, never charged) deliberately left OUTSIDE_SCOPE | **APPLIED 2026-08-26**, verified: 21 rows; every ELECTRIC profile now STANDARD bar that one |
 
+| `20260826130000_fix_clear_meter_reading.sql` | fn_delete_meter_reading deleted the charge before the meter_reads row that referenced it, so Clear always failed on a reading that had raised a charge (FK `meter_reads_charge_id_fkey`). Order reversed | **APPLIED 2026-08-26**, verified: the 11 mis-dated Southgate August readings cleared through it |
+
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 
 ## Shared project — read before touching anything

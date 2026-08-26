@@ -18,8 +18,17 @@ block and an attachment per suite and a single total, as Giara's do.
 Ambitions' £302.71 was received by bank transfer on 11 August and is recorded; their
 invoice is PAID and their row has dropped off the payment grid, as intended.
 
-**Outstanding on this:** the two August part-month rent drafts (£356.45 and £246.77) are
-generated and correct but **not yet approved, issued or sent**.
+The two August part-month rent invoices are issued (`R2608-SGP-U8S2.5-2.6` £356.45 and
+`R2608-SGP-U8S2.7` £246.77). Because Suite 2.4's August invoice was emailed on 27 July and
+all four suites now sit under one tenant, the dispatch card shows as already sent and
+**Send all unsent will skip Al-Hurraya** — August goes out manually, sending only the two
+new PDFs. From the September run all three merge into one email as normal.
+
+**Southgate August electric is not yet entered.** The 26 August bulk upload was recorded
+against today's date rather than the cycle date; all 11 readings and their draft charges
+have been cleared and it is to be re-uploaded, dated 24 August 2026. The four billing-off
+meters (`MTR-SGP-1.1-1.2`, `1.3-1.4`, `2.1-2.2`, `2.10`) have no August reading either;
+they record usage without raising a charge, which is expected.
 
 **Live from 26 August** (code needs pushing before the invoice side takes effect):
 - A part-month rent invoice prints the period it bills (15 to 31 August) and says
