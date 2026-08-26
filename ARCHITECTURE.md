@@ -54,8 +54,16 @@ verbatim thereafter (once migration `20260704120200` is applied).
   that were quarterly/annual have been removed from the system. Do not add a
   quarterly lease without raising this first. **Part months are pro-rata at both
   ends** (2026-07-26): a tenancy starting and/or ending mid-month bills the days
-  occupied, both ends inclusive, over the days in that month. Preview and Generate
-  share this rule, so the dry run matches what gets created.
+  occupied, both ends inclusive, over the days in that month. Preview, Generate and
+  Regenerate all share this one rule — Regenerate was the odd one out until
+  2026-08-26, silently resetting a part-month draft to a full month.
+- **A part-month invoice prints the period it bills** (2026-08-26).
+  `charge_records.billed_from` / `billed_to` record the window the generator billed,
+  and the invoice shows those dates plus "(part month, 17 of 31 days)" rather than the
+  whole calendar month. `period_start` / `period_end` still mean the calendar month, so
+  the duplicate guard, the collection matrix and every existing query are unchanged.
+  Charges raised before that date have NULL and render exactly as the tenant received
+  them — the same protection the concession lines were given.
 - **Rent concessions print on the invoice from the September 2026 run.** Where a
   fixed discount is live, the rent line shows the headline and a second line shows
   the reduction with its end date, so a tenant is never surprised when it reverts.

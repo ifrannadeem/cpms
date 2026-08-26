@@ -31,8 +31,18 @@ export interface InvoiceData {
   premisesLabel: string
   premisesAddress: string
   description: string
+  /** The period the invoice bills. On a part month this is the occupied window
+   *  (15 to 31 August), not the calendar month, so the dates on the page agree with
+   *  the pro-rated figure. */
   periodStart: string
   periodEnd: string
+  /** Present only where the charge bills part of a calendar month, so the invoice can
+   *  say why the figure is not a full month's rent. Absent on every charge raised
+   *  before 2026-08-26, which has no billed window recorded and prints as it always did. */
+  partMonth?: {
+    daysBilled: number
+    daysInMonth: number
+  }
   vatTreatment: string
   netAmount: number
   vatAmount: number
@@ -70,6 +80,17 @@ export function fmtLongDate(iso: string): string {
 
 export function monthLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+}
+
+/** Whole days from one date to another, both ends inclusive — the same count the
+ *  generator pro-rates by. Parsed as UTC so a British Summer Time boundary inside the
+ *  period can never lose or gain a day. */
+export function daysInclusive(fromIso: string, toIso: string): number {
+  const MS_PER_DAY = 86_400_000
+  const from = Date.parse(`${fromIso}T00:00:00Z`)
+  const to = Date.parse(`${toIso}T00:00:00Z`)
+  if (isNaN(from) || isNaN(to)) return 0
+  return Math.round((to - from) / MS_PER_DAY) + 1
 }
 
 function yymm(iso: string): string {
@@ -303,9 +324,20 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
       : undefined
     const concession = concessionFor(c.period_start, net, vat, gross, parseFloat(c.vat_rate ?? '0'), inc)
 
+    // The window actually billed. Rent charges raised from 2026-08-26 carry it; anything
+    // older (and every electric charge) falls back to the whole period, so invoices already
+    // issued keep rendering exactly as the tenant received them.
+    const billedFrom = (kind === 'RENT' ? c.billed_from : null) ?? c.period_start
+    const billedTo   = (kind === 'RENT' ? c.billed_to   : null) ?? c.period_end
+    const daysInMonth = daysInclusive(c.period_start, c.period_end)
+    const daysBilled  = daysInclusive(billedFrom, billedTo)
+    const partMonth =
+      daysBilled > 0 && daysBilled < daysInMonth ? { daysBilled, daysInMonth } : undefined
+
     const description =
       kind === 'RENT'
-        ? `Rent – Monthly in Advance\n${monthLabel(c.period_start)}`
+        ? `Rent – Monthly in Advance\n${monthLabel(c.period_start)}` +
+          (partMonth ? ` (part month, ${partMonth.daysBilled} of ${partMonth.daysInMonth} days)` : '')
         : kind === 'ELECTRIC'
           ? `Electricity – ${monthLabel(c.period_end)}`
           : c.charge_label
@@ -325,8 +357,9 @@ export async function assembleInvoices(chargeIds: string[]): Promise<InvoiceData
       premisesLabel: premisesLabel(refs),
       premisesAddress,
       description,
-      periodStart: c.period_start,
-      periodEnd: c.period_end,
+      periodStart: billedFrom,
+      periodEnd: billedTo,
+      partMonth,
       vatTreatment: treatment,
       netAmount: net,
       vatAmount: vat,

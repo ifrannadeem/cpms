@@ -66,11 +66,13 @@ export default async function AssetPaymentsPage({ params }: Props) {
       .eq('asset_id', asset.asset_id)
       .eq('charge_type', 'RENT')
       .in('status', ['ISSUED', 'OVERDUE', 'PART_PAID']),
+    // Ended tenancies are included only while they still owe rent (the view enforces
+    // that), so a departing tenant's final settlement can be recorded.
     supabase
       .from('v_payment_grid')
-      .select('lease_id, tenant_id, tenant_name, unit_references')
+      .select('lease_id, tenant_id, tenant_name, unit_references, ended')
       .eq('asset_id', asset.asset_id)
-      .eq('billable', true),
+      .or('billable.eq.true,ended.eq.true'),
   ])
 
   const rows = (payments ?? []).filter(p => p.charge_type === 'RENT' || p.charge_type == null)
@@ -92,6 +94,7 @@ export default async function AssetPaymentsPage({ params }: Props) {
       tenant_name: l.tenant_name,
       unit_references: l.unit_references,
       outstanding: outstandingByLease.get(l.lease_id) ?? 0,
+      ended: l.ended === true,
     }))
     .sort((a, b) => a.unit_references.localeCompare(b.unit_references, undefined, { numeric: true }))
 

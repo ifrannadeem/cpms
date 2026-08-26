@@ -14,6 +14,9 @@ export interface GridRow {
   tenant_name: string
   unit_references: string
   outstanding: number
+  /** Tenancy has ended but still owes rent. Shown so a settled-up final payment can be
+   *  recorded without the row being mistaken for a current tenancy. */
+  ended?: boolean
 }
 
 interface Props {
@@ -136,6 +139,11 @@ export default function PaymentGrid({ rows, chargeType }: Props) {
                 </td>
                 <td className="px-4 py-3 text-slate-800 font-medium">
                   {row.tenant_name}
+                  {row.ended && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs font-medium align-middle">
+                      Ended
+                    </span>
+                  )}
                   {s.result && (
                     <span className="block text-xs text-emerald-600 font-normal mt-1">
                       {fmt(s.result.amount)} recorded{' '}

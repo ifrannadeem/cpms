@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildReference,
   concessionFor,
+  daysInclusive,
   invoiceFileName,
   premisesLabel,
   unitCode,
@@ -189,5 +190,62 @@ describe('invoiceFileName', () => {
     }
     expect(invoiceFileName(inv)).toBe('2608. Invoice - Rent - Unit A Apex UK1 Ltd.pdf')
     expect(invoiceFileName(inv)).not.toContain('Juices')
+  })
+})
+
+describe('daysInclusive', () => {
+  it('counts both ends of a part month', () => {
+    // Al-Hurraya, Southgate Suites 2.5/2.6, commencing 15 August 2026
+    expect(daysInclusive('2026-08-15', '2026-08-31')).toBe(17)
+  })
+
+  it('counts a whole month', () => {
+    expect(daysInclusive('2026-08-01', '2026-08-31')).toBe(31)
+    expect(daysInclusive('2026-02-01', '2026-02-28')).toBe(28)
+  })
+
+  it('counts a single day', () => {
+    expect(daysInclusive('2026-08-15', '2026-08-15')).toBe(1)
+  })
+
+  it('is not thrown off by the British Summer Time boundary', () => {
+    // Clocks go back on 25 October 2026; a local-time subtraction would give 31.5 days
+    expect(daysInclusive('2026-10-01', '2026-10-31')).toBe(31)
+    expect(daysInclusive('2026-03-01', '2026-03-31')).toBe(31)
+  })
+
+  it('returns 0 for an unparseable date rather than NaN', () => {
+    expect(daysInclusive('', '2026-08-31')).toBe(0)
+  })
+})
+
+describe('invoiceFileName on a part month', () => {
+  // A part-month rent invoice carries the occupied window as its period, so the filename
+  // must still take its month from that period and not drift.
+  it('still names the file after the billing month', () => {
+    const inv: InvoiceData = {
+      kind: 'RENT',
+      reference: 'R2608-SGP-U8S2.5-2.6',
+      invoiceDate: '2026-08-26',
+      dueDate: '2026-08-01',
+      entity: {} as InvoiceData['entity'],
+      tenantId: 't1',
+      tenantAddress: [],
+      premisesAddress: '',
+      description: '',
+      vatTreatment: 'EXEMPT',
+      netAmount: 356.45,
+      vatAmount: 0,
+      grossAmount: 356.45,
+      paidAmount: 0,
+      amountDue: 356.45,
+      periodStart: '2026-08-15',
+      periodEnd: '2026-08-31',
+      partMonth: { daysBilled: 17, daysInMonth: 31 },
+      premisesLabel: 'Suites 2.5 - 2.6',
+      tenantName: 'Al-Hurraya',
+      tenantLegalName: 'Al-Hurraya',
+    }
+    expect(invoiceFileName(inv)).toBe('2608. Invoice - Rent - Suites 2.5 - 2.6 Al-Hurraya.pdf')
   })
 })

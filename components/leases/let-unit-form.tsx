@@ -39,6 +39,7 @@ export default function LetUnitForm({ assetReference, vacantUnits }: Props) {
     contactName: '',
     contactEmail: '',
     contactPhone: '',
+    address: '',
     leaseType: 'FIXED_TERM',
     commencement: firstOfNextMonth(),
     expiry: '',
@@ -61,6 +62,10 @@ export default function LetUnitForm({ assetReference, vacantUnits }: Props) {
   async function handleLet() {
     if (selected.size === 0) { setError('Select at least one unit'); return }
     if (!form.legalName.trim()) { setError('Tenant legal name is required'); return }
+    // Required here rather than in the database, so a tenancy can still be created by a
+    // build that predates this field. Without an address the invoice silently falls back
+    // to addressing the tenant at the premises.
+    if (!form.address.trim()) { setError('Correspondence address is required — this is where invoices are addressed'); return }
     if (!form.annualRent) { setError('Annual rent is required'); return }
     if (form.leaseType === 'FIXED_TERM' && !form.expiry) { setError('Fixed term requires an expiry date'); return }
     const unitNames = vacantUnits.filter(u => selected.has(u.unit_id)).map(u => u.unit_label).join(', ')
@@ -84,6 +89,7 @@ export default function LetUnitForm({ assetReference, vacantUnits }: Props) {
       p_vat_treatment: form.vat,
       p_deposit: form.deposit.trim() === '' ? null : parseFloat(form.deposit),
       p_electric_recharge: form.electric,
+      p_correspondence_address: form.address.trim(),
     })
     setSaving(false)
     if (rpcError) {
@@ -166,6 +172,16 @@ export default function LetUnitForm({ assetReference, vacantUnits }: Props) {
               <input type="tel" value={form.contactPhone}
                 onChange={e => setForm({ ...form, contactPhone: e.target.value })} className={inputClass} />
             </div>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Correspondence Address *</label>
+            <input type="text" value={form.address}
+              placeholder="Building, street, town, postcode"
+              onChange={e => setForm({ ...form, address: e.target.value })} className={inputClass} />
+            <p className="text-xs text-slate-400 mt-1">
+              Where invoices are addressed. Separate the parts with commas — each becomes a line
+              on the invoice. Without it the invoice is addressed to the premises.
+            </p>
           </div>
 
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-1">Lease Terms</p>

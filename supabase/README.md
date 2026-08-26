@@ -47,6 +47,12 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 | `20260726150000_editable_tenant_names.sql` | fn_update_tenant_details gains p_legal_name / p_trading_name so both names are maintainable (legal name cannot be blanked; empty trading name clears it) | **APPLIED 2026-07-26** |
 | `20260726120000_part_month_prorata.sql` | Commencement pro-rata added to fn_generate_asset_rent_charges (was final-month only); fn_preview_asset_rent_charges given the same rule — it previously had **no** pro-rata, so Preview and Generate disagreed | **APPLIED 2026-07-26**, verified: Suite 2.7 previews at 252.26 matching Generate. |
 
+| `20260826100000_billed_period_on_rent_charges.sql` | charge_records.billed_from / billed_to, stamped by fn_generate_asset_rent_charges and exposed in v_charge_ledger, so a part-month invoice can print the period it actually bills | **APPLIED 2026-08-26**, verified: Suites 2.5/2.6 render 15 to 31 August |
+| `20260826100100_payment_grid_ended_tenancies.sql` | v_payment_grid admits a TERMINATED lease while it still owes rent, and gains `ended`; a departed tenant's final payment can now be recorded | **APPLIED 2026-08-26**, verified: Ambitions Personnel appears, Ridge View (settled) does not |
+| `20260826100200_let_unit_correspondence_address.sql` | fn_let_unit gains p_correspondence_address (old 16-arg signature dropped to avoid ambiguity); the form makes it required | **APPLIED 2026-08-26** |
+| `20260826100300_merge_al_hurraya_tenant_records.sql` | One-off: three duplicate Al-Hurraya tenant records merged into the one holding the Suite 2.4 history; legal name corrected, address and invoice recipient filled in | **APPLIED 2026-08-26**, verified: one record, four suites, 6 charges and 3 payments intact |
+| `20260826100400_regenerate_drafts_prorata.sql` | fn_regenerate_asset_draft_charges had no pro-rata and reset a part-month draft to a full month; now shares the Preview/Generate rule and stamps billed_from / billed_to | **APPLIED 2026-08-26**, verified: refreshing the August Southgate drafts leaves 356.45 and 246.77 unchanged |
+
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 
 ## Shared project — read before touching anything
