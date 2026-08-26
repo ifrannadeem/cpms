@@ -57,6 +57,8 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 | `20260826140000_apply_tenant_credit.sql` | v_tenant_credit (unallocated money held per tenant/asset/charge type) + fn_apply_tenant_credit, which sets it against a lease's outstanding charges oldest-first as real payment_allocations rows, so Reverse still unwinds it | **APPLIED 2026-08-26**, verified end-to-end in a rolled-back transaction |
 | `20260826150000_rosehill_letterhead_email.sql` | 2i Investments (Rosehill's issuing entity) had no email on record, so Rosehill invoices printed no contact details; set to 2iinvestmentsltd@gmail.com, matching the mailbox Rosehill sends from | **APPLIED 2026-08-26**, verified |
 
+| `20260826160000_meter_rollover_must_be_plausible.sql` | fn_record_meter_reading / fn_update_meter_reading treated ANY lower reading as a meter rollover; a missed decimal on Unit 12A became 999,999.46 kWh and a GBP 305,999.83 draft. A wrap is now inferred only where one is possible (previous near the top of the dial range, new near the bottom); otherwise it raises, naming both readings and dates | **APPLIED 2026-08-26**, verified: misread refused, normal increase accepted, genuine rollover still accepted |
+
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 
 ## Shared project — read before touching anything

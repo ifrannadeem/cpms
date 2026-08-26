@@ -98,7 +98,12 @@ verbatim thereafter (once migration `20260704120200` is applied).
   downgrade, June 2026.
 - Rent-free ending mid-month zeroes the whole month (no pro-rating) unless a
   `rent_incentives` row says otherwise.
-- Meter rollover is handled manually ("put a 1 in front") by owner preference.
+- **A meter reading that goes down is refused** unless a rollover is actually possible —
+  previous reading near the top of the dial range, new one near the bottom (2026-08-26).
+  Both functions previously treated *any* decrease as a wrap: a missed decimal on Rosehill
+  Unit 12A (1026.54 then 1026.00) became 999,999.46 kWh and a GBP 305,999.83 draft invoice.
+  Nothing on screen distinguished it from a normal entry but the figure. Rollover otherwise
+  stays manual ("put a 1 in front") by owner preference.
 - **An electric reading cycle is keyed on the date the meters were read** (`period_end`),
   not on `period_start` (2026-08-26). A charge's `period_start` is that meter's *previous*
   reading date, which legitimately differs between meters in the same run — a meter

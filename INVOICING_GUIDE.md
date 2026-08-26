@@ -57,6 +57,8 @@ So the electric run is: enter the readings, then on **Electric: Invoicing** revi
 
 **Bulk upload.** Rather than typing each meter, use **Bulk upload readings**: download the template, fill in the Reading column (leave a meter blank to skip it), set the date the meters were read, and upload. The date is deliberately left empty and the upload stays locked until you fill it in, because it is almost never the day you are sitting there entering them. You are asked to confirm the date in words before anything is written.
 
+**A reading that goes down is refused.** If you enter a reading lower than the one before it, the system stops and tells you both readings and both dates. A meter cannot run backwards, so the usual cause is a missed decimal — reading 1026 off a meter that actually shows 1026.54. Check the meter and enter the full figure. The one exception is a genuine rollover, where the meter has passed its maximum and restarted near zero; that is recognised automatically and still goes through. If a meter has actually been reset or replaced, register it under Manage Meters rather than entering a lower reading.
+
 **Getting a reading wrong.** On the Meter Readings screen each reading has **Edit** and **Clear**. Both work only on the most recent reading for that meter, and only while its charge is still a draft. Clear removes the reading and its draft charge together, so a whole cycle entered against the wrong date can be cleared line by line and re-uploaded. Once the charge has been approved or issued, Clear refuses and the correction has to go through Adjust or Cancel instead.
 
 ---

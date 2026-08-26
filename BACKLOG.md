@@ -11,4 +11,4 @@ Running list of agreed-but-not-yet-built items, so nothing is lost between sessi
 ## Other deferred items (cross-referenced)
 - **Phase 3 — invoice lifecycle:** void/credit function; per-charge "edit this draft" amount/VAT override (see BILLING_REDESIGN_PLAN.md).
 - **Phase 7 — email dispatch automation:** auto-send issued invoices by each tenant's preferred method; send log; per-entity sender (see BILLING_REDESIGN_PLAN.md).
-- **Meter rollover:** keep the manual "put a 1 in front" method — agreed not to automate. Optional tiny nicety: warn when a new reading is lower than the previous (possible meter reset).
+- **Meter rollover:** keep the manual "put a 1 in front" method — agreed not to automate. ✅ **DONE 2026-08-26** — the "warn when a new reading is lower than the previous" nicety turned out to be load-bearing: the code silently inferred a rollover from *any* decrease, so a missed decimal on Rosehill Unit 12A produced a GBP 305,999.83 draft invoice. A decrease is now refused unless a wrap is genuinely possible.
