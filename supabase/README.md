@@ -59,6 +59,8 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 
 | `20260826130000_fix_clear_meter_reading.sql` | fn_delete_meter_reading deleted the charge before the meter_reads row that referenced it, so Clear always failed on a reading that had raised a charge (FK `meter_reads_charge_id_fkey`). Order reversed | **APPLIED 2026-08-26**, verified: the 11 mis-dated Southgate August readings cleared through it |
 
+| `20260826140000_apply_tenant_credit.sql` | v_tenant_credit (unallocated money held per tenant/asset/charge type) + fn_apply_tenant_credit, which sets it against a lease's outstanding charges oldest-first as real payment_allocations rows, so Reverse still unwinds it | **APPLIED 2026-08-26**, verified end-to-end in a rolled-back transaction |
+
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 
 ## Shared project — read before touching anything

@@ -41,6 +41,11 @@ them by design; the lease detail page and search use the history view). Payments
 cash-receipt journal: `fn_record_lease_payment` allocates oldest-first per lease and
 charge type into `payments` / `payment_allocations`. Arrears definition is centralised
 in `v_arrears_charges` (electric gets a month's grace; rent is overdue from the 1st).
+Money received beyond what is outstanding stays on the receipt as
+`payments.unallocated_amount` and is **never applied on its own** — `v_tenant_credit`
+surfaces it and `fn_apply_tenant_credit` sets it against a lease's outstanding charges
+when the operator presses Apply, writing ordinary `payment_allocations` rows so the
+registers, arrears and `fn_reverse_payment` all treat it as the allocation it is.
 
 Invoice PDFs (`/api/invoices`, `lib/invoice-pdf.tsx`) render from `v_charge_ledger` +
 `issuing_entities`. The reference (`R2607-U12` / `2607E-U12`) is stamped onto
@@ -83,6 +88,12 @@ verbatim thereafter (once migration `20260704120200` is applied).
 - **End Tenancy is date-aware.** A future date on End Tenancy records notice and
   keeps the lease active and billing until then, ending it automatically on the date
   (nightly `fn_apply_due_terminations`). Today/backdated ends immediately.
+- **Credit is applied by hand, never swept automatically** (owner decision 2026-08-26).
+  An advance or an overpayment shows as "credit held" on the payment register with an
+  **Apply** button. Automatic allocation was rejected: credit is rare, and cash landing
+  somewhere unexpected is worse than one extra click. Note `v_arrears_charges` does not
+  net off unapplied credit, so a tenant who has paid ahead still reads as in arrears
+  until Apply is pressed.
 - Periodic tenancies alert at **LOW** urgency ("accepted position") — intentional
   downgrade, June 2026.
 - Rent-free ending mid-month zeroes the whole month (no pro-rating) unless a

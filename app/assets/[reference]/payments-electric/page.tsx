@@ -53,7 +53,7 @@ export default async function AssetElectricPaymentsPage({ params }: Props) {
     )
   }
 
-  const [{ data: payments }, { data: elecCharges }] = await Promise.all([
+  const [{ data: payments }, { data: elecCharges }, { data: credits }] = await Promise.all([
     supabase
       .from('v_payment_register')
       .select('*')
@@ -66,7 +66,16 @@ export default async function AssetElectricPaymentsPage({ params }: Props) {
       .eq('asset_id', asset.asset_id)
       .eq('charge_type', 'ELECTRIC')
       .in('status', ['ISSUED', 'OVERDUE', 'PART_PAID']),
+    supabase
+      .from('v_tenant_credit')
+      .select('tenant_id, credit_amount')
+      .eq('asset_id', asset.asset_id)
+      .eq('charge_type', 'ELECTRIC'),
   ])
+
+  const creditByTenant = new Map(
+    (credits ?? []).map(c => [c.tenant_id as string, parseFloat(c.credit_amount ?? '0')])
+  )
 
   const rows = (payments ?? []).filter(p => p.charge_type === 'ELECTRIC')
 
@@ -91,6 +100,7 @@ export default async function AssetElectricPaymentsPage({ params }: Props) {
       tenant_name: e.tenant_name,
       unit_references: Array.from(e.units).sort().join(', '),
       outstanding: e.outstanding,
+      credit: creditByTenant.get(e.tenant_id) ?? 0,
     }))
     .sort((a, b) => a.unit_references.localeCompare(b.unit_references, undefined, { numeric: true }))
 

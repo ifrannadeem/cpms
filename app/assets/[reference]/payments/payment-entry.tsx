@@ -17,6 +17,10 @@ export interface GridRow {
   /** Tenancy has ended but still owes rent. Shown so a settled-up final payment can be
    *  recorded without the row being mistaken for a current tenancy. */
   ended?: boolean
+  /** Unallocated money already received from this tenant — an advance, or an
+   *  overpayment. Held against the tenant, so it repeats on each of their leases until
+   *  it is applied. */
+  credit?: number
 }
 
 interface Props {
@@ -39,14 +43,23 @@ interface AllocationResult {
   allocations: AllocationDetail[]
 }
 
+interface CreditResult {
+  applied: number
+  charges: number
+  remaining: number
+  details: { charge_label: string; applied: number; fully_paid: boolean }[]
+}
+
 interface RowState {
   date: string
   amount: string
   method: string
   notes: string
   saving: boolean
+  applying: boolean
   error: string | null
   result: AllocationResult | null
+  credit: CreditResult | null
 }
 
 const METHODS = [
@@ -63,7 +76,10 @@ function todayISO(): string {
 }
 
 function blankRow(): RowState {
-  return { date: todayISO(), amount: '', method: 'BANK_TRANSFER', notes: '', saving: false, error: null, result: null }
+  return {
+    date: todayISO(), amount: '', method: 'BANK_TRANSFER', notes: '',
+    saving: false, applying: false, error: null, result: null, credit: null,
+  }
 }
 
 function fmt(v: number): string {
@@ -113,6 +129,29 @@ export default function PaymentGrid({ rows, chargeType }: Props) {
     }
   }
 
+  async function handleApplyCredit(row: GridRow) {
+    const available = row.credit ?? 0
+    const willApply = Math.min(available, row.outstanding)
+    if (willApply <= 0) return
+    if (!confirm(
+      `Apply ${fmt(willApply)} of ${row.tenant_name}'s credit to what they owe on ${formatUnit(row.unit_references)}?\n\n` +
+      `It is set against the oldest unpaid invoice first, dated when the money was received. ` +
+      `Reversing the original receipt undoes this too.`
+    )) return
+
+    update(row.lease_id, { applying: true, error: null, credit: null, result: null })
+    const { data, error } = await supabase.rpc('fn_apply_tenant_credit', {
+      p_lease_id: row.lease_id,
+      p_charge_type: chargeType,
+    })
+    if (error) {
+      update(row.lease_id, { applying: false, error: error.message })
+    } else {
+      update(row.lease_id, { applying: false, credit: data as CreditResult })
+      router.refresh()
+    }
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 mb-6">
       <table className="min-w-full bg-white text-sm">
@@ -154,6 +193,44 @@ export default function PaymentGrid({ rows, chargeType }: Props) {
                       {s.result.unallocated > 0 && (
                         <span className="text-amber-600"> ({fmt(s.result.unallocated)} unallocated)</span>
                       )}
+                    </span>
+                  )}
+                  {s.credit && (
+                    <span className="block text-xs font-normal mt-1">
+                      {s.credit.applied > 0 ? (
+                        <span className="text-emerald-600">
+                          {fmt(s.credit.applied)} credit applied
+                          {s.credit.details.length > 0 &&
+                            ` ${String.fromCharCode(0x2192)} ${s.credit.details
+                              .map(d => `${d.charge_label}${d.fully_paid ? '' : ' (part)'}`)
+                              .join(', ')}`}
+                          {s.credit.remaining > 0 && (
+                            <span className="text-amber-600"> ({fmt(s.credit.remaining)} credit left)</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">Nothing to apply the credit to.</span>
+                      )}
+                    </span>
+                  )}
+                  {/* Unallocated money already received: an advance, or an overpayment.
+                      It is never applied on its own — the operator decides when. */}
+                  {(row.credit ?? 0) > 0 && row.outstanding > 0 && (
+                    <span className="flex items-center gap-2 mt-1.5">
+                      <span className="text-xs font-normal text-blue-700">
+                        {fmt(row.credit ?? 0)} credit held
+                      </span>
+                      <button
+                        onClick={() => handleApplyCredit(row)}
+                        disabled={s.applying || s.saving}
+                        className="px-2 py-0.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-500 disabled:opacity-40 transition-colors">
+                        {s.applying ? 'Applying...' : 'Apply'}
+                      </button>
+                    </span>
+                  )}
+                  {(row.credit ?? 0) > 0 && row.outstanding <= 0 && (
+                    <span className="block text-xs font-normal text-blue-700 mt-1">
+                      {fmt(row.credit ?? 0)} credit held {String.fromCharCode(0x2014)} nothing outstanding to set it against
                     </span>
                   )}
                   {s.error && (

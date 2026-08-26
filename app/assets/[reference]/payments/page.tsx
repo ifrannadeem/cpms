@@ -53,7 +53,7 @@ export default async function AssetPaymentsPage({ params }: Props) {
     )
   }
 
-  const [{ data: payments }, { data: outstandingCharges }, { data: gridLeases }] = await Promise.all([
+  const [{ data: payments }, { data: outstandingCharges }, { data: gridLeases }, { data: credits }] = await Promise.all([
     supabase
       .from('v_payment_register')
       .select('*')
@@ -73,6 +73,11 @@ export default async function AssetPaymentsPage({ params }: Props) {
       .select('lease_id, tenant_id, tenant_name, unit_references, ended')
       .eq('asset_id', asset.asset_id)
       .or('billable.eq.true,ended.eq.true'),
+    supabase
+      .from('v_tenant_credit')
+      .select('tenant_id, credit_amount')
+      .eq('asset_id', asset.asset_id)
+      .eq('charge_type', 'RENT'),
   ])
 
   const rows = (payments ?? []).filter(p => p.charge_type === 'RENT' || p.charge_type == null)
@@ -86,6 +91,10 @@ export default async function AssetPaymentsPage({ params }: Props) {
     )
   }
 
+  const creditByTenant = new Map(
+    (credits ?? []).map(c => [c.tenant_id as string, parseFloat(c.credit_amount ?? '0')])
+  )
+
   // Grid rows: one per billable lease, sorted by unit reference (natural order)
   const gridRows: GridRow[] = (gridLeases ?? [])
     .map(l => ({
@@ -95,6 +104,9 @@ export default async function AssetPaymentsPage({ params }: Props) {
       unit_references: l.unit_references,
       outstanding: outstandingByLease.get(l.lease_id) ?? 0,
       ended: l.ended === true,
+      // Credit is held against the tenant, so a tenant with several leases sees it on
+      // each row until they apply it.
+      credit: creditByTenant.get(l.tenant_id) ?? 0,
     }))
     .sort((a, b) => a.unit_references.localeCompare(b.unit_references, undefined, { numeric: true }))
 

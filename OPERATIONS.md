@@ -177,6 +177,7 @@ the live pilot; Rosehill follows; Peartree stays manual (WhatsApp).
 | Wrong amount on an ISSUED invoice | Use the adjust-issued-invoice action (offsetting correction) — never edit `charge_records` directly. |
 | Invoice raised but not due (surrender, error) | Open the charge → **Cancel / write off invoice** → Cancelled (credit). It leaves arrears; record and reason retained for audit. |
 | Payment recorded against the wrong tenant / wrong amount | Receipt History → **Reverse** on that row (reason required) → re-enter the correct payment. Allocations unwind and charges revert automatically; the reversal is logged. |
+| Tenant paid in advance / overpaid; next invoice still shows as due | Expected. Unallocated money is held, not swept. Rent: Payments → the tenant's row shows "credit held" → **Apply**. Until then arrears counts them as owing. |
 | Need history of a unit / ended tenancy | Search the tenant (marked "ended"), or the asset's Leases tab → Past Tenancies. Detail pages work for terminated leases. |
 | Suspected unauthorised access | Supabase → Authentication → Users: remove/reset the user; then rotate the service-role key in Supabase and update Vercel env. |
 

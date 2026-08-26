@@ -83,6 +83,18 @@ Some tenants are not sent by email. On the Rent: Invoicing and Electric: Invoici
 
 ---
 
+## Paying in advance, and overpayments
+
+When you record a payment it clears whatever is outstanding at that moment, oldest first. Anything left over sits on the receipt as **unallocated** — it is money you have received and are holding, not money attached to anything.
+
+It is **not** applied on its own. A tenant who pays September's rent in August will still show September as fully outstanding, and will still read as in arrears, until you apply the credit. This is deliberate: cash is only moved when you say so.
+
+To apply it, go to **Rent: Payments** (or **Electric: Payments**). Any tenant holding credit shows **"£1,000.00 credit held"** against their row with an **Apply** button. Pressing it sets the credit against their oldest unpaid invoice first, up to whatever they owe, and asks you to confirm the amount first. The invoice is dated the day the money was actually received, not the day you press the button.
+
+Credit is held against the **tenant**, so a tenant with several units sees the same credit on each of their rows; applying it on one uses it up. Any part you do not use stays as credit for next time. If they owe nothing at all, the row says so and there is no button.
+
+If you later Reverse the original receipt, the applied credit unwinds with it, because applying credit is a real allocation of that payment rather than a separate adjustment.
+
 ## Corrections after an invoice is issued
 
 An issued invoice is a fixed record, so corrections are made deliberately, never by editing the figure:
