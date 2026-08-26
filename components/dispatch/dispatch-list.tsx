@@ -29,6 +29,8 @@ interface Props {
   monthLabel: string
   live: boolean
   testTo: string | null
+  /** The mailbox this asset sends from, or null if none is configured for it. */
+  sendFrom: string | null
   drafts: DraftView[]
 }
 
@@ -36,7 +38,7 @@ type Status = { state: 'idle' | 'sending' | 'sent' | 'error'; message?: string }
 
 const DASH = String.fromCharCode(0x2014)
 
-export default function DispatchList({ assetId, assetReference, type, month, monthLabel, live, testTo, drafts }: Props) {
+export default function DispatchList({ assetId, assetReference, type, month, monthLabel, live, testTo, sendFrom, drafts }: Props) {
   const router = useRouter()
   const [status, setStatus] = useState<Record<string, Status>>({})
   const [justSent, setJustSent] = useState<Set<string>>(new Set())
@@ -104,6 +106,15 @@ export default function DispatchList({ assetId, assetReference, type, month, mon
             <code className="text-xs">{assetReference}</code> to <code className="text-xs">DISPATCH_LIVE_ASSETS</code>.
           </span>
         )}
+        {/* The From address is worth stating outright: it is per asset, and a tenant
+            replying to an invoice replies to whichever mailbox sent it. */}
+        <span className="block mt-1">
+          Sending from{' '}
+          {sendFrom
+            ? <span className="font-medium">{sendFrom}</span>
+            : <span className="font-medium">no mailbox configured for {assetReference}</span>}
+          .
+        </span>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2">

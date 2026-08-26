@@ -3,7 +3,7 @@ import Link from 'next/link'
 import AssetTabs from '@/components/asset-tabs'
 import { monthLabel } from '@/lib/invoice-data'
 import { gatherDispatch, type DispatchType } from '@/lib/dispatch'
-import { dispatchMode } from '@/lib/mailer'
+import { dispatchMode, senderAddress } from '@/lib/mailer'
 import DispatchList, { type DraftView } from '@/components/dispatch/dispatch-list'
 
 interface Props {
@@ -112,6 +112,7 @@ export default async function DispatchPage({ params, searchParams }: Props) {
           monthLabel={monthLabel(`${month}-01`)}
           live={mode.live}
           testTo={mode.testTo}
+          sendFrom={senderAddress(reference)}
           drafts={drafts}
         />
       )}

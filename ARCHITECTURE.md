@@ -107,6 +107,11 @@ verbatim thereafter (once migration `20260704120200` is applied).
   while the Approve and Issue buttons (which act asset-wide) reported the full count. The
   cycle label shows the earliest opening date; each invoice still carries its own exact
   period.
+- **Invoice email sends from a per-asset mailbox** (2026-08-26): `SMTP_USER_<REF>` /
+  `SMTP_PASS_<REF>` override the shared `SMTP_USER` / `SMTP_PASS`. A property's tenants
+  hear from the entity named on their invoice, and a reply reaches the right inbox.
+  Half-configured is refused, never guessed: a per-asset address without its own password
+  raises rather than falling back to the shared one and sending from the wrong account.
 - Southgate is invoiced like a landlord asset even though 2i is only agent; its income
   is excluded from owned-portfolio figures via `income_owned = false`.
 - 2i Investments and As-Siraat have `applies = false` charge profiles — never billed.

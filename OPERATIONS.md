@@ -123,6 +123,15 @@ the live pilot; Rosehill follows; Peartree stays manual (WhatsApp).
 
 - **Recipients:** the tenancy's *Invoice recipients* field (comma-separated for
   several people), else the accounts/primary email.
+- **Sending address is per asset (2026-08-26).** `SMTP_USER_<REF>` / `SMTP_PASS_<REF>`
+  — e.g. `SMTP_USER_ASSET_001` / `SMTP_PASS_ASSET_001` for Rosehill — override the shared
+  `SMTP_USER` / `SMTP_PASS`, which stay the fallback for any asset without its own. Each
+  property then sends from the mailbox its tenants expect, and a reply reaches the right
+  inbox. The pair must be set **together**: a per-asset address with the shared password
+  is refused outright rather than silently sending from the wrong account. The Email
+  Invoices banner names the From address, so check it before going live.
+  Current intent: Southgate `noblestoneltd@gmail.com` (2i acts as agent for Connect
+  Derby), Rosehill `2iinvestmentsltd@gmail.com` (2i as landlord).
 - **Test vs live is per asset (env vars on Vercel):** `SMTP_USER`, `SMTP_PASS`
   (Gmail App Password) send the mail; `DISPATCH_TEST_TO` is the test inbox. An asset
   is **live** only if its reference is in `DISPATCH_LIVE_ASSETS` (comma-separated) —
@@ -137,7 +146,20 @@ the live pilot; Rosehill follows; Peartree stays manual (WhatsApp).
   so re-running the batch is safe. A deliberate resend is per-tenant via
   **Resend**, which asks to confirm before emailing the tenant again.
 - **Rotate the App Password:** revoke at myaccount.google.com/apppasswords, issue a
-  new one, update `SMTP_PASS` in Vercel, redeploy.
+  new one, update `SMTP_PASS` (or the asset's `SMTP_PASS_<REF>`) in Vercel, redeploy.
+
+### Bringing an asset live on email — the order that keeps it safe
+
+1. Real invoice recipients on every tenancy for that asset (the *Invoice recipients*
+   field). Anything still `…@placeholder.tbc` is skipped, not sent.
+2. Its mailbox: create a Gmail App Password on that account, then set
+   `SMTP_USER_<REF>` and `SMTP_PASS_<REF>` in Vercel (Production) and redeploy.
+3. **Still in test mode**, open Email Invoices and confirm the banner reads *Sending
+   from &lt;that address&gt;*, then send one. The test lands in `DISPATCH_TEST_TO` and
+   shows the From address it really used.
+4. Only then add the asset's reference to `DISPATCH_LIVE_ASSETS` and redeploy.
+
+Nothing is marked as sent until step 4, so steps 1–3 are reversible.
 
 ## Decisions on record (2026-07-05)
 

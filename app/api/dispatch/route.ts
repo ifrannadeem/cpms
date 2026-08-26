@@ -72,7 +72,9 @@ export async function POST(req: NextRequest) {
       attachments.push({ filename: invoiceFileName(inv), content: new Uint8Array(pdf) })
     }
 
-    await sendMail({ to: recipients, subject, text, attachments })
+    const { from } = await sendMail({
+      assetReference: asset.asset_reference, to: recipients, subject, text, attachments,
+    })
 
     // Only record a real send. A test run must not flag invoices as sent to tenants.
     if (mode.live) {
@@ -83,7 +85,7 @@ export async function POST(req: NextRequest) {
         .not('status', 'in', '(DRAFT,APPROVED)')
     }
 
-    return NextResponse.json({ ok: true, live: mode.live, sentTo: recipients, attachments: attachments.length })
+    return NextResponse.json({ ok: true, live: mode.live, sentTo: recipients, from, attachments: attachments.length })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Send failed'
     return NextResponse.json({ error: message }, { status: 500 })
