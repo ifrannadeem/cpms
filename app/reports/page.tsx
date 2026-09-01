@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import RentIncomeDownload, { type AssetOpt } from '@/components/reports/rent-income-download'
+import IncomeVatDownload from '@/components/reports/income-vat-download'
 import VatControls from '@/components/reports/vat-controls'
 import { computeVatMatrix, currentVatYear } from '@/lib/reports'
 
@@ -44,6 +45,18 @@ export default async function ReportsPage({ searchParams }: Props) {
         <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
         <p className="text-sm text-slate-500 mt-1">Download formatted Excel reports for rental income and VAT.</p>
       </div>
+
+      {/* Rent income & VAT by month — the accountant's report */}
+      <section className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
+        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-1">Rent Income &amp; VAT by Month</h2>
+        <p className="text-xs text-slate-400 mb-4 max-w-2xl">
+          Net rent, VAT and gross for each month, showing what was invoiced against what has been received.
+          Three sheets: a summary by month, then VAT and net rent broken down per tenant. Rent only, excluding
+          electricity. Figures sit in the month the rent relates to, not the month the invoice was raised.
+          One property at a time, as each sits in its own legal entity and VAT registration.
+        </p>
+        <IncomeVatDownload assets={assetList} />
+      </section>
 
       {/* Monthly rent income */}
       <section className="bg-white border border-slate-200 rounded-xl p-6 mb-6">

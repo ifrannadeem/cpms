@@ -209,6 +209,28 @@ Nothing is marked as sent until step 4, so steps 1–3 are reversible.
   If CI is red, the deploy that Vercel does anyway is suspect — fix before using it.
 - **DB changes:** file in `supabase/migrations/` first, always (see supabase/README.md).
 
+## Giving the accountant income and VAT figures
+
+**Reports → Rent Income & VAT by Month**, one property at a time. Pick the property and a
+month range, and it downloads an Excel workbook with three sheets: a summary by month, then
+VAT and net rent per tenant. Each month shows what was **invoiced** against what has been
+**received**, so the gap between the two is the arrears rather than a discrepancy.
+
+Three things to say when handing it over:
+
+- **Rent only.** Electricity is not in it (owner instruction 2026-08-26). Electric VAT is
+  real output VAT and will need adding if the accountant asks for the full picture.
+- **Opera holds nothing before July 2026.** The system went live that month; the first rent
+  charges are for July 2026 and the first receipts are late June. Earlier periods have to
+  come from whatever was kept before, not from here.
+- **Never merge the properties.** Rosehill is 2i Investments (VAT 202 3355 59), Southgate is
+  Noblestone Partners as agent for Connect Derby (VAT 487 8361 34), and Peartree is not
+  registered. Separate entities, separate returns. The report will only ever produce one
+  property at a time, by design.
+
+Credited and written-off invoices are excluded from the totals and shown on their own line,
+since a written-off debt may qualify for VAT bad debt relief.
+
 ## Incident quick-reference
 
 | Symptom | First move |

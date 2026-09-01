@@ -119,6 +119,14 @@ verbatim thereafter (once migration `20260704120200` is applied).
   raises rather than falling back to the shared one and sending from the wrong account.
 - Southgate is invoiced like a landlord asset even though 2i is only agent; its income
   is excluded from owned-portfolio figures via `income_owned = false`.
+- **Income & VAT reporting is per asset and never merged** (2026-08-26, `lib/income-vat.ts`).
+  Rosehill (2i Investments, VAT 202 3355 59) and Southgate (Noblestone Partners, as agent,
+  VAT 487 8361 34) are separate legal entities filing separate returns, and Peartree is not
+  registered — a portfolio total would be meaningless. The report anchors figures on the
+  month the rent *relates to* (`period_start`), whereas the older `computeVatMatrix`
+  anchors on `issued_date`; the two answer different questions and will not agree. Credited
+  and written-off invoices are excluded from the figures but shown separately, because a
+  written-off debt may carry VAT bad debt relief.
 - 2i Investments and As-Siraat have `applies = false` charge profiles — never billed.
 - VAT is a hardcoded 20% for `STANDARD` inside the generator functions.
 
