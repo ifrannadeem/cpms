@@ -79,20 +79,31 @@ export default async function AssetElectricPaymentsPage({ params }: Props) {
 
   const rows = (payments ?? []).filter(p => p.charge_type === 'ELECTRIC')
 
-  // Build one row per tenant from the electric charges themselves, so the displayed
-  // unit is where the electric charge actually sits (e.g. Unit B), not the
-  // alphabetically-first lease the tenant happens to also hold (e.g. Unit 5).
+  // One row per LEASE, built from the electric charges themselves.
+  //
+  // Two things have to hold at once. The unit shown must be where the electric charge
+  // actually sits (e.g. Unit B), not the alphabetically-first unit the tenant happens to
+  // hold elsewhere — which is why the rows come from the charges rather than from
+  // lease_units. And the row must carry the lease those charges belong to, because
+  // fn_record_lease_payment allocates strictly within one lease.
+  //
+  // Grouping by tenant satisfied the first and broke the second: a tenant holding several
+  // leases got one row carrying whichever lease_id happened to come last, so a payment
+  // covering all their suites paid down that one lease and stranded the rest as
+  // unallocated. Al-Hurraya, 28 August 2026: GBP 58.31 covering four suites allocated
+  // GBP 9.12 to Suites 2.5/2.6 and left GBP 49.19 hanging, because Suites 2.4 and 2.7 sit
+  // on separate leases. The Apply credit button had the same blind spot — it too acted on
+  // that single lease, where nothing was owed.
   interface ElecAgg { tenant_id: string; tenant_name: string; lease_id: string; units: Set<string>; outstanding: number }
-  const byTenant = new Map<string, ElecAgg>()
+  const byLease = new Map<string, ElecAgg>()
   for (const c of elecCharges ?? []) {
-    const e = byTenant.get(c.tenant_id) ?? { tenant_id: c.tenant_id, tenant_name: c.tenant_name, lease_id: c.lease_id, units: new Set<string>(), outstanding: 0 }
+    const e = byLease.get(c.lease_id) ?? { tenant_id: c.tenant_id, tenant_name: c.tenant_name, lease_id: c.lease_id, units: new Set<string>(), outstanding: 0 }
     e.outstanding += parseFloat(c.outstanding_amount ?? '0')
     if (c.unit_reference) e.units.add(c.unit_reference)
-    e.lease_id = c.lease_id
     e.tenant_name = c.tenant_name
-    byTenant.set(c.tenant_id, e)
+    byLease.set(c.lease_id, e)
   }
-  const gridRowsUnique: GridRow[] = Array.from(byTenant.values())
+  const gridRowsUnique: GridRow[] = Array.from(byLease.values())
     .filter(e => e.outstanding > 0)
     .map(e => ({
       lease_id: e.lease_id,

@@ -88,6 +88,14 @@ verbatim thereafter (once migration `20260704120200` is applied).
 - **End Tenancy is date-aware.** A future date on End Tenancy records notice and
   keeps the lease active and billing until then, ending it automatically on the date
   (nightly `fn_apply_due_terminations`). Today/backdated ends immediately.
+- **Payment grids are keyed on the lease, never the tenant** (2026-09-01). Both
+  `fn_record_lease_payment` and `fn_apply_tenant_credit` allocate strictly within one
+  lease, so a row offering a payment box must carry the lease those charges belong to.
+  The electric grid grouped by tenant instead and kept whichever `lease_id` came last:
+  Al-Hurraya's GBP 58.31 covering four suites paid GBP 9.12 against Suites 2.5/2.6 and
+  stranded GBP 49.19, because Suites 2.4 and 2.7 sit on separate leases. Apply credit had
+  the same blind spot. Rows still take their unit labels from the charges themselves, so
+  the unit shown is where the electric charge actually sits.
 - **Credit is applied by hand, never swept automatically** (owner decision 2026-08-26).
   An advance or an overpayment shows as "credit held" on the payment register with an
   **Apply** button. Automatic allocation was rejected: credit is rare, and cash landing
