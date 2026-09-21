@@ -127,6 +127,16 @@ verbatim thereafter (once migration `20260704120200` is applied).
   raises rather than falling back to the shared one and sending from the wrong account.
 - Southgate is invoiced like a landlord asset even though 2i is only agent; its income
   is excluded from owned-portfolio figures via `income_owned = false`.
+- **The Monthly Rent Income report is by rent month, not by bank date** (2026-09-21,
+  `lib/rent-income.ts`). "Received" is what has been allocated to that month's rent
+  invoice, whenever the money arrived; the cash actually banked in the month survives
+  only as a footnote for bank reconciliation. It previously summed payments by
+  `payment_date` per tenant, so Idrak's July rent paid on 10 August showed in August,
+  and Al-Hurraya's GBP 1,725 on 28 August — mostly September's rent, across three
+  leases — landed in August against one suite. Every active unit is listed, empty ones
+  as Vacant, so nil-because-empty is never confused with nil-because-unpaid. A tenancy of
+  a combined unit covers the units later split from it (`split_from_unit_id`, e.g.
+  RBC-A-4-5 into Units 4 and 5).
 - **Income & VAT reporting is per asset and never merged** (2026-08-26, `lib/income-vat.ts`).
   Rosehill (2i Investments, VAT 202 3355 59) and Southgate (Noblestone Partners, as agent,
   VAT 487 8361 34) are separate legal entities filing separate returns, and Peartree is not

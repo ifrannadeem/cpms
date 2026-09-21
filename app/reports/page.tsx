@@ -62,7 +62,9 @@ export default async function ReportsPage({ searchParams }: Props) {
       <section className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-1">Monthly Rent Income</h2>
         <p className="text-xs text-slate-400 mb-4 max-w-2xl">
-          Gross rent billed, cash received in the month, and balance outstanding per tenant. Run it at month end.
+          Every unit for the chosen month: the rent billed for that month, what has been received against it
+          (whenever it was paid), and what is still outstanding. Empty units show as Vacant. A footnote gives the
+          cash actually banked in the month, for reconciling to the bank statement.
         </p>
         <RentIncomeDownload assets={assetList} />
       </section>

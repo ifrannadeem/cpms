@@ -1,6 +1,9 @@
 import ExcelJS from 'exceljs'
 import { unitLabel } from './format'
 import { supabase } from '@/lib/supabase'
+import { buildMonthlyRentRows, type RentRow } from './rent-income'
+
+export type { RentRow }
 
 const MONEY = '"£"#,##0.00'
 
@@ -13,20 +16,89 @@ function pad(n: number): string { return String(n).padStart(2, '0') }
 
 // ---------- Monthly rent income ----------
 
-export interface RentRow {
-  unit: string
-  tenant: string
-  grossBilled: number
-  received: number
-  outstanding: number
-}
-
 export interface RentIncomeData {
   assetName: string
   monthLabel: string
   generatedAt: string
   rows: RentRow[]
   totalReceivedAll: number
+}
+
+/** Rent charges that count as income. Credited and written-off invoices are not rent due. */
+const RENT_COUNTED = ['ISSUED', 'OVERDUE', 'PART_PAID', 'PAID']
+
+/**
+ * What each unit earned for one month: rent billed for that month and what has been
+ * received against it, whenever it was paid. Row rules live in lib/rent-income.ts.
+ * `month` is YYYY-MM.
+ */
+export async function computeRentIncome(assetId: string, month: string): Promise<RentIncomeData> {
+  const [y, m] = month.split('-').map(Number)
+  const monthStart = `${month}-01`
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const monthEnd = `${month}-${pad(lastDay)}`
+  const monthEndExcl = m === 12 ? `${y + 1}-01-01` : `${y}-${pad(m + 1)}-01`
+  const monthLabel = new Date(Date.UTC(y, m - 1, 1))
+    .toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+
+  const [{ data: asset }, { data: units }, { data: leases }, { data: tenants }, { data: charges }, { data: monthPayments }] =
+    await Promise.all([
+      supabase.from('assets').select('asset_name').eq('asset_id', assetId).single(),
+      // All units, retired ones included, so a past tenancy of a combined unit keeps its label.
+      supabase.from('units').select('unit_id, unit_reference, active, split_from_unit_id').eq('asset_id', assetId),
+      supabase.from('leases')
+        .select('lease_id, tenant_id, commencement_date, termination_date')
+        .eq('asset_id', assetId),
+      supabase.from('tenants').select('tenant_id, legal_name, trading_name'),
+      supabase.from('charge_records')
+        .select('charge_id, lease_id, gross_amount')
+        .eq('asset_id', assetId).eq('charge_type', 'RENT')
+        .in('status', RENT_COUNTED)
+        .gte('period_start', monthStart).lt('period_start', monthEndExcl),
+      // Cash banked in the month, for the reconciliation line at the foot of the sheet.
+      supabase.from('payments')
+        .select('amount')
+        .eq('asset_id', assetId).eq('charge_type', 'RENT')
+        .gte('payment_date', monthStart).lt('payment_date', monthEndExcl),
+    ])
+
+  const leaseIds = (leases ?? []).map(l => l.lease_id)
+  const chargeIds = (charges ?? []).map(c => c.charge_id)
+  const [{ data: leaseUnits }, { data: allocations }] = await Promise.all([
+    leaseIds.length
+      ? supabase.from('lease_units').select('lease_id, unit_id').in('lease_id', leaseIds)
+      : Promise.resolve({ data: [] as { lease_id: string; unit_id: string }[] }),
+    chargeIds.length
+      ? supabase.from('payment_allocations').select('charge_id, allocated_amount').in('charge_id', chargeIds)
+      : Promise.resolve({ data: [] as { charge_id: string; allocated_amount: string }[] }),
+  ])
+
+  const tenantById = new Map((tenants ?? []).map(t => [t.tenant_id, t]))
+  const rows = buildMonthlyRentRows({
+    monthStart,
+    monthEnd,
+    units: units ?? [],
+    leases: leases ?? [],
+    leaseUnits: leaseUnits ?? [],
+    tenantName: id => {
+      const t = tenantById.get(id)
+      return t ? (t.trading_name ?? t.legal_name) : String.fromCharCode(0x2014)
+    },
+    charges: (charges ?? []).map(c => ({
+      charge_id: c.charge_id, lease_id: c.lease_id, gross_amount: parseFloat(c.gross_amount ?? '0'),
+    })),
+    allocations: (allocations ?? []).map(a => ({
+      charge_id: a.charge_id, allocated_amount: parseFloat(a.allocated_amount ?? '0'),
+    })),
+  })
+
+  return {
+    assetName: asset?.asset_name ?? 'Asset',
+    monthLabel,
+    generatedAt: new Date().toLocaleString('en-GB'),
+    rows,
+    totalReceivedAll: (monthPayments ?? []).reduce((s, p) => s + parseFloat(p.amount ?? '0'), 0),
+  }
 }
 
 export async function buildRentIncomeWorkbook(data: RentIncomeData): Promise<Uint8Array> {
@@ -53,11 +125,15 @@ export async function buildRentIncomeWorkbook(data: RentIncomeData): Promise<Uin
   ws.getCell('A2').value = data.monthLabel
   ws.getCell('A2').font = { size: 12, color: { argb: 'FF475569' } }
   ws.mergeCells('A3:E3')
-  ws.getCell('A3').value = `Generated ${data.generatedAt}`
+  ws.getCell('A3').value =
+    `Rent due for ${data.monthLabel} and what has been received against it, whenever it was paid. `
+    + `Every unit is listed; empty units show as Vacant. Generated ${data.generatedAt}.`
   ws.getCell('A3').font = { size: 9, italic: true, color: { argb: 'FF94A3B8' } }
+  ws.getCell('A3').alignment = { wrapText: true }
+  ws.getRow(3).height = 26
   ws.getRow(4).height = 6
 
-  const headers = ['Unit', 'Tenant', 'Gross Rent Billed', 'Received This Month', 'Balance Outstanding']
+  const headers = ['Unit', 'Tenant', 'Rent Billed for Month', 'Received Against It', 'Outstanding for Month']
   const hr = ws.getRow(5)
   headers.forEach((h, i) => {
     const c = hr.getCell(i + 1)
@@ -80,6 +156,8 @@ export async function buildRentIncomeWorkbook(data: RentIncomeData): Promise<Uin
     for (let c = 3; c <= 5; c++) xr.getCell(c).numFmt = MONEY
     xr.getCell(5).font = { color: { argb: row.outstanding > 0 ? 'FFB91C1C' : 'FF334155' } }
     if (r % 2 === 1) for (let c = 1; c <= 5; c++) xr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }
+    // Vacant reads differently from unpaid at a glance: nil because empty, not nil because owed.
+    if (row.vacant) for (let c = 1; c <= 5; c++) xr.getCell(c).font = { italic: true, color: { argb: 'FF94A3B8' } }
     tGross += row.grossBilled; tRecv += row.received; tOut += row.outstanding
     r++
   }
@@ -100,7 +178,9 @@ export async function buildRentIncomeWorkbook(data: RentIncomeData): Promise<Uin
 
   ws.mergeCells(`A${r}:E${r}`)
   ws.getCell(`A${r}`).value =
-    `Total rent received in ${data.monthLabel} (all payments, incl. arrears): £${data.totalReceivedAll.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    // Kept for bank reconciliation: this is cash that landed in the month, for any period,
+    // so it will not equal the Received column above and is not meant to.
+    `Cash banked in ${data.monthLabel} (all rent payments, whichever month they paid for): £${data.totalReceivedAll.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   ws.getCell(`A${r}`).font = { italic: true, size: 10, color: { argb: 'FF475569' } }
 
   return new Uint8Array(await wb.xlsx.writeBuffer() as ArrayBuffer)
