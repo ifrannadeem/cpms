@@ -92,6 +92,8 @@ export function Sidebar() {
               { label: 'Electric: Invoicing', href: `${href}/invoicing-electric`,  exact: false, group: 'electric' },
               { label: 'Electric: Payments',  href: `${href}/payments-electric`,   exact: false, group: 'electric' },
               { label: 'Electric: Collection', href: `${href}/electric-collection`, exact: false, group: 'electric' },
+              // Keep in step with components/asset-tabs.tsx, which holds the same list for the tab strip.
+              { label: 'Other Income',        href: `${href}/other-income`,        exact: false },
               { label: 'Arrears',             href: `${href}/arrears`,             exact: false },
               { label: 'Email Invoices',      href: `${href}/dispatch`,            exact: false },
             ]

@@ -2,6 +2,8 @@ import Link from 'next/link'
 
 type Group = 'rent' | 'electric' | undefined
 
+// Keep in step with the asset sections in components/sidebar.tsx, which lists the same
+// pages for the sidebar. A tab added here and not there is reachable from one but not the other.
 const TABS: { key: string; label: string; path: string; group?: Group }[] = [
   { key: 'overview', label: 'Overview', path: '' },
   { key: 'leases', label: 'Leases', path: '/leases' },
