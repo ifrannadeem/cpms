@@ -79,13 +79,13 @@ export default async function OtherIncomePage({ params }: Props) {
         <span>/</span>
         <Link href={`/assets/${reference}`} className="hover:text-slate-600">{asset.asset_name}</Link>
         <span>/</span>
-        <span className="text-slate-700 font-medium">Other Income</span>
+        <span className="text-slate-700 font-medium">Other Income: Payments</span>
       </nav>
 
       <AssetTabs reference={reference} active="other-income" />
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">{asset.asset_name} {DASH} Other Income</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{asset.asset_name} {DASH} Other Income: Payments</h1>
         <p className="text-sm text-slate-500 mt-1 max-w-3xl">
           Money this property earns outside its leases, such as EV chargers, parking and the car park, or anything
           received once. Record what arrived and the month it belongs to. It appears in the monthly reports

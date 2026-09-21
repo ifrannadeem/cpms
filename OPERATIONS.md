@@ -211,7 +211,7 @@ Nothing is marked as sent until step 4, so steps 1–3 are reversible.
 
 ## Other income (EV chargers, parking, car park, one-offs)
 
-On each property, the **Other Income** tab. Record what arrived, the day it arrived, and
+On each property, **Other Income: Payments**. Record what arrived, the day it arrived, and
 **the month it belongs to**, which is left blank on purpose so it is always chosen. VAT is
 one click: *No VAT*, *Includes 20% VAT*, or type it. A quarterly payment (Swarco) goes in
 once with *Months it covers* set to 3 and is spread evenly, so the income does not spike.
@@ -220,9 +220,14 @@ Southgate sources as set up on 2026-09-21: EV chargers (Swarco, 20%), Unit 7 par
 (Maximus, 20%), Car park (Vehicle Control Services, no VAT), and *Other (one-off)* for
 anything occasional. Add Suite 2.9 parking as its own source when its records are to hand.
 
+**Other Income: Collection** is the calendar grid, laid out like Rent: Collection: sources
+down, months across, with an Excel export. A regular source that paid nothing for a month
+now past shows in red; the current month and later are not flagged, as the car park pays
+for a month in the month after.
+
 Receipts only. Opera does not invoice these payers or track what they owe, so outstanding
-amounts (Maximus from March 2026, the car park balance of GBP 784 for August) are visible
-only as nil lines in the monthly report. A wrong entry is removed with a reason and kept for
+amounts (Maximus from March 2026, the car park balance of GBP 784 for August) show as red
+cells in the grid and nil lines in the monthly report, but not as a sum owed. A wrong entry is removed with a reason and kept for
 the record; re-enter it correctly.
 
 ## Giving the accountant income and VAT figures

@@ -136,6 +136,10 @@ verbatim thereafter (once migration `20260704120200` is applied).
   shows a line in every monthly report from its first receipt onwards, nil when nothing came
   in, so a missed payment is visible; a **one-off** source is itemised and appears only when
   it receives something. No invoicing and no tracking of what is owed, by instruction.
+  Two tabs in their own violet group, as rent and electric have theirs: *Payments* (entry,
+  `/other-income`) and *Collection* (calendar grid, `/other-income-collection`, rules in
+  `otherIncomeCollection`). The grid has no invoice to measure against, so a cell is what
+  was received; a regular source is flagged red for a past month it did not pay.
 - **Every `fn_*` must be revoked from PUBLIC, not just anon.** They are SECURITY DEFINER, so
   they bypass row-level security and the only lock is EXECUTE. A new function is executable
   by PUBLIC by default, and dropping and recreating one resets it. Two slipped through on

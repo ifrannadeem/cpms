@@ -181,3 +181,118 @@ export function otherIncomeBySource(
 
   return rows.sort((a, b) => Number(b.recurring) - Number(a.recurring) || a.source.localeCompare(b.source))
 }
+
+// ---------- Collection grid: sources down, the twelve months of a year across ----------
+
+/**
+ *   received  money arrived for this month
+ *   missed    a recurring source paid nothing for a month that has already passed, on or
+ *             after its first receipt: the case this view exists to show
+ *   before    before the source's first receipt, or a retired source with nothing
+ *   pending   the current month or later, with nothing yet. Not flagged: the car park pays
+ *             for a month in the month after, so the current month is not yet late
+ */
+export type CollectionState = 'received' | 'missed' | 'before' | 'pending'
+
+export interface CollectionCell {
+  state: CollectionState
+  net: number
+  vat: number
+  gross: number
+  /** Dates the money for this month arrived. */
+  receivedDates: string[]
+}
+
+export interface CollectionRow {
+  sourceId: string
+  source: string
+  payer: string
+  recurring: boolean
+  active: boolean
+  cells: CollectionCell[]
+  yearNet: number
+  yearVat: number
+  yearGross: number
+}
+
+export interface OtherIncomeCollection {
+  year: number
+  rows: CollectionRow[]
+  monthlyTotals: number[]
+  cumulative: number[]
+  /** Sources that received something in each month. */
+  payerCounts: number[]
+  yearNet: number
+  yearVat: number
+  yearGross: number
+}
+
+/**
+ * The Other Income: Collection grid for one calendar year, matching Rent: Collection and
+ * Electric: Collection. There is no invoice to measure against, so a cell is what was
+ * received for that month, and a regular source that paid nothing for a past month is
+ * flagged. `currentMonth` (YYYY-MM) is passed in so the rules are testable.
+ */
+export function otherIncomeCollection(
+  year: number,
+  currentMonth: string,
+  sources: OtherIncomeSource[],
+  receipts: OtherIncomeReceipt[],
+): OtherIncomeCollection {
+  const first = firstMonthBySource(receipts)
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
+  const yearStart = months[0], yearEnd = months[11]
+
+  const rows: CollectionRow[] = []
+  for (const s of sources) {
+    const mine = receipts.filter(r => r.source_id === s.source_id)
+    const inYear = mine.filter(r => { const m = monthOf(r.period_month); return m >= yearStart && m <= yearEnd })
+    // A regular source still in use always gets a row; anything else only if it received
+    // something this year.
+    if (!(s.recurring && s.active) && inYear.length === 0) continue
+
+    const cells: CollectionCell[] = months.map(m => {
+      const rs = inYear.filter(r => monthOf(r.period_month) === m)
+      if (rs.length > 0) {
+        return {
+          state: 'received' as const,
+          net: round2(rs.reduce((a, r) => a + r.net, 0)),
+          vat: round2(rs.reduce((a, r) => a + r.vat, 0)),
+          gross: round2(rs.reduce((a, r) => a + r.gross, 0)),
+          receivedDates: Array.from(new Set(rs.map(r => r.received_date))).sort(),
+        }
+      }
+      const f = first.get(s.source_id)
+      const state: CollectionState =
+        m >= currentMonth ? 'pending'
+        : s.recurring && s.active && !!f && m >= f ? 'missed'
+        : 'before'
+      return { state, net: 0, vat: 0, gross: 0, receivedDates: [] }
+    })
+
+    rows.push({
+      sourceId: s.source_id,
+      source: s.name,
+      payer: s.payer ?? '',
+      recurring: s.recurring,
+      active: s.active,
+      cells,
+      yearNet: round2(cells.reduce((a, c) => a + c.net, 0)),
+      yearVat: round2(cells.reduce((a, c) => a + c.vat, 0)),
+      yearGross: round2(cells.reduce((a, c) => a + c.gross, 0)),
+    })
+  }
+  rows.sort((a, b) => Number(b.recurring) - Number(a.recurring) || a.source.localeCompare(b.source))
+
+  const monthlyTotals = months.map((_, i) => round2(rows.reduce((a, r) => a + r.cells[i].gross, 0)))
+  const cumulative: number[] = []
+  monthlyTotals.reduce((run, v, i) => { cumulative[i] = round2(run + v); return cumulative[i] }, 0)
+  const payerCounts = months.map((_, i) => rows.filter(r => r.cells[i].gross > 0).length)
+
+  return {
+    year, rows, monthlyTotals, cumulative, payerCounts,
+    yearNet: round2(rows.reduce((a, r) => a + r.yearNet, 0)),
+    yearVat: round2(rows.reduce((a, r) => a + r.yearVat, 0)),
+    yearGross: round2(rows.reduce((a, r) => a + r.yearGross, 0)),
+  }
+}

@@ -81,7 +81,7 @@ export function Sidebar() {
           {assets.map((a) => {
             const href = `/assets/${a.ref}`
             const isActive = pathname.startsWith(href)
-            const sections: { label: string; href: string; exact: boolean; group?: 'rent' | 'electric' }[] = [
+            const sections: { label: string; href: string; exact: boolean; group?: 'rent' | 'electric' | 'other' }[] = [
               { label: 'Overview',            href: href,                          exact: true },
               { label: 'Leases',              href: `${href}/leases`,              exact: false },
               { label: 'Billing',             href: `${href}/billing`,             exact: false },
@@ -93,7 +93,8 @@ export function Sidebar() {
               { label: 'Electric: Payments',  href: `${href}/payments-electric`,   exact: false, group: 'electric' },
               { label: 'Electric: Collection', href: `${href}/electric-collection`, exact: false, group: 'electric' },
               // Keep in step with components/asset-tabs.tsx, which holds the same list for the tab strip.
-              { label: 'Other Income',        href: `${href}/other-income`,        exact: false },
+              { label: 'Other Income: Payments',   href: `${href}/other-income`,            exact: false, group: 'other' },
+              { label: 'Other Income: Collection', href: `${href}/other-income-collection`, exact: false, group: 'other' },
               { label: 'Arrears',             href: `${href}/arrears`,             exact: false },
               { label: 'Email Invoices',      href: `${href}/dispatch`,            exact: false },
             ]
@@ -120,6 +121,8 @@ export function Sidebar() {
                       const groupChanged = i > 0 && sections[i - 1].group !== s.group
                       const accent = s.group === 'electric'
                         ? 'border-l-2 border-sky-500'
+                        : s.group === 'other'
+                          ? 'border-l-2 border-violet-500'
                         : s.group === 'rent'
                           ? 'border-l-2 border-slate-500'
                           : 'border-l-2 border-transparent'

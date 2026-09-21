@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   otherIncomeBySource,
+  otherIncomeCollection,
   otherIncomeLinesForMonth,
   type OtherIncomeReceipt,
   type OtherIncomeSource,
@@ -102,5 +103,50 @@ describe('otherIncomeBySource', () => {
 
   it('omits a one-off source with nothing in the period', () => {
     expect(otherIncomeBySource(Q1, SOURCES, HISTORY).map(r => r.source)).not.toContain('Other (one-off)')
+  })
+})
+
+describe('otherIncomeCollection', () => {
+  // As at 21 September 2026.
+  const grid = otherIncomeCollection(2026, '2026-09', SOURCES, HISTORY)
+  const row = (name: string) => grid.rows.find(r => r.source === name)!
+
+  it('flags a past month a regular source did not pay', () => {
+    expect(row('Unit 7 parking bays').cells[2]).toMatchObject({ state: 'missed', gross: 0 }) // March
+    expect(row('Unit 7 parking bays').cells[7].state).toBe('missed')                         // August
+  })
+
+  it('shows what was received, with the date it arrived', () => {
+    expect(row('Unit 7 parking bays').cells[1]).toMatchObject({ state: 'received', gross: 384, receivedDates: ['2026-03-27'] })
+  })
+
+  it('does not flag the current month or later, which are not yet late', () => {
+    expect(row('Unit 7 parking bays').cells[8].state).toBe('pending')  // September
+    expect(row('Unit 7 parking bays').cells[11].state).toBe('pending') // December
+  })
+
+  it('does not flag months before a source first received anything', () => {
+    // The car park's first receipt in this history is March.
+    expect(row('Car park').cells[0].state).toBe('before')
+    expect(row('Car park').cells[3].state).toBe('missed') // April: nothing, after March, in the past
+  })
+
+  it('leaves out a one-off source with nothing in the year, but keeps regular ones', () => {
+    expect(grid.rows.map(r => r.source)).toEqual(['Car park', 'EV chargers', 'Unit 7 parking bays'])
+  })
+
+  it('totals each month and the year, with a running total and a count of payers', () => {
+    expect(grid.monthlyTotals[0]).toBe(914)   // Jan: EV 530 + Maximus 384
+    expect(grid.monthlyTotals[2]).toBe(1610)  // Mar: EV 530 + car park 1,080
+    expect(grid.cumulative[2]).toBe(914 + 914 + 1610)
+    expect(grid.payerCounts[2]).toBe(2)
+    expect(grid.yearVat).toBe(265 + 64 * 3)
+  })
+
+  it('keeps showing a retired source only for money it actually received', () => {
+    const g = otherIncomeCollection(2026, '2026-09', [EV, { ...MAX, active: false }, VCS], HISTORY)
+    const max = g.rows.find(r => r.source === 'Unit 7 parking bays')!
+    expect(max.cells[2].state).toBe('before') // no longer flagged once retired
+    expect(max.cells[0].gross).toBe(384)
   })
 })

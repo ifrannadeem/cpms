@@ -99,11 +99,13 @@ If you later Reverse the original receipt, the applied credit unwinds with it, b
 
 ## Other income
 
-Income that is not rent, such as EV chargers, parking bays, the car park or a one-off payment, is kept on the **Other Income** tab and never goes near rent invoicing.
+Income that is not rent, such as EV chargers, parking bays, the car park or a one-off payment, is kept on the **Other Income: Payments** tab and never goes near rent invoicing.
 
 Record each payment as it arrives: the source, the date received, the total amount, and the month it belongs to. For VAT choose *No VAT*, *Includes 20% VAT* (it works out the net and VAT for you), or enter the VAT yourself. If one payment covers several months, set *Months it covers* and it is spread evenly; a quarterly payment of £1,590 becomes £530 in each of its three months.
 
 A regular source appears in every monthly report, shown at nil in a month nothing came in, so a missed payment stands out. Occasional income goes under *Other (one-off)* with a description, and appears only in the month it arrived. New sources can be added from the same tab at any time.
+
+**Other Income: Collection** shows the year as a calendar grid, the same layout as Rent: Collection: each source down the side, the months across. A regular source that paid nothing for a month that has passed is shown in red, so you can see at a glance who has fallen behind. Hover over a figure to see when it arrived and how much of it was VAT. There is an Excel button for the same grid.
 
 ## Corrections after an invoice is issued
 

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-type Group = 'rent' | 'electric' | undefined
+type Group = 'rent' | 'electric' | 'other' | undefined
 
 // Keep in step with the asset sections in components/sidebar.tsx, which lists the same
 // pages for the sidebar. A tab added here and not there is reachable from one but not the other.
@@ -15,7 +15,8 @@ const TABS: { key: string; label: string; path: string; group?: Group }[] = [
   { key: 'invoicing-electric', label: 'Electric: Invoicing', path: '/invoicing-electric', group: 'electric' },
   { key: 'payments-electric', label: 'Electric: Payments', path: '/payments-electric', group: 'electric' },
   { key: 'electric-collection', label: 'Electric: Collection', path: '/electric-collection', group: 'electric' },
-  { key: 'other-income', label: 'Other Income', path: '/other-income' },
+  { key: 'other-income', label: 'Other Income: Payments', path: '/other-income', group: 'other' },
+  { key: 'other-income-collection', label: 'Other Income: Collection', path: '/other-income-collection', group: 'other' },
   { key: 'arrears', label: 'Arrears', path: '/arrears' },
   { key: 'dispatch', label: 'Email Invoices', path: '/dispatch' },
 ]
@@ -31,6 +32,11 @@ function tabClasses(group: Group, active: boolean): string {
     return base + (active
       ? 'bg-sky-100 text-sky-900 font-semibold border-b-2 border-sky-600 -mb-px'
       : 'bg-sky-50 text-sky-700 hover:bg-sky-100')
+  }
+  if (group === 'other') {
+    return base + (active
+      ? 'bg-violet-100 text-violet-900 font-semibold border-b-2 border-violet-600 -mb-px'
+      : 'bg-violet-50 text-violet-700 hover:bg-violet-100')
   }
   return base + (active
     ? 'text-slate-900 font-semibold border-b-2 border-slate-900 -mb-px'
