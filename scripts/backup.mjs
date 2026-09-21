@@ -62,6 +62,8 @@ const TABLES = [
   'arrears_actions',
   'tenant_activity',
   'vat_config',
+  'other_income_sources',
+  'other_income_receipts',
 ]
 
 const stamp = new Date().toISOString().slice(0, 10)

@@ -59,6 +59,10 @@ database rebuildable. It is a snapshot, not a living document — the living rec
 
 | `20260826160000_meter_rollover_must_be_plausible.sql` | fn_record_meter_reading / fn_update_meter_reading treated ANY lower reading as a meter rollover; a missed decimal on Unit 12A became 999,999.46 kWh and a GBP 305,999.83 draft. A wrap is now inferred only where one is possible (previous near the top of the dial range, new near the bottom); otherwise it raises, naming both readings and dates | **APPLIED 2026-08-26**, verified: misread refused, normal increase accepted, genuine rollover still accepted |
 
+| `20260921095000_lock_down_credit_and_let_unit.sql` | fn_apply_tenant_credit (new 2026-08-26) and fn_let_unit (recreated 2026-08-26) had lost their EXECUTE lock and were callable with the public anon key. Revoked from PUBLIC and anon. Every lease, tenant and credit since then checked and accounted for | **APPLIED 2026-09-21**, verified: anon cannot execute, authenticated can |
+| `20260921100000_other_income.sql` | Other income ledger: other_income_sources, other_income_receipts, v_other_income, fn_add/update_other_income_source, fn_record_other_income (VAT none / 20% included / manual; one payment spread over up to 12 months), fn_remove_other_income (soft delete with reason). Read by nothing in the lease, invoicing or payment code | **APPLIED 2026-09-21**, verified: GBP 1,590 over 3 months gives 530 x 3 with VAT exactly 265.00 |
+| `20260921100100_southgate_other_income_history.sql` | One-off load of Southgate's other income from the owner's spreadsheet: EV chargers 4,770.00, Unit 7 parking 1,152.00 (March 2026 not paid, so not loaded), car park 6,932.00 | **APPLIED 2026-09-21**, verified against the spreadsheet totals |
+
 All migrations to date are applied. New DB changes: write the file here first, then apply.
 
 ## Shared project — read before touching anything

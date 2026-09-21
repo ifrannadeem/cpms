@@ -2,6 +2,8 @@ import ExcelJS from 'exceljs'
 import { unitLabel } from './format'
 import { supabase } from '@/lib/supabase'
 import { buildMonthlyRentRows, type RentRow } from './rent-income'
+import { otherIncomeLinesForMonth, type OtherIncomeLine } from './other-income'
+import { fetchOtherIncome } from './other-income-data'
 
 export type { RentRow }
 
@@ -22,6 +24,12 @@ export interface RentIncomeData {
   generatedAt: string
   rows: RentRow[]
   totalReceivedAll: number
+  /** Income outside the leases for the month: one line per recurring source (nil if
+   *  nothing arrived) plus each one-off. See lib/other-income.ts. */
+  otherIncome: OtherIncomeLine[]
+  /** Other income that actually arrived in the month, whichever month it belongs to,
+   *  for the bank reconciliation footnote alongside rent. */
+  otherIncomeBanked: number
 }
 
 /** Rent charges that count as income. Credited and written-off invoices are not rent due. */
@@ -41,6 +49,7 @@ export async function computeRentIncome(assetId: string, month: string): Promise
   const monthLabel = new Date(Date.UTC(y, m - 1, 1))
     .toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
+  const otherIncomeP = fetchOtherIncome(assetId)
   const [{ data: asset }, { data: units }, { data: leases }, { data: tenants }, { data: charges }, { data: monthPayments }] =
     await Promise.all([
       supabase.from('assets').select('asset_name').eq('asset_id', assetId).single(),
@@ -92,12 +101,19 @@ export async function computeRentIncome(assetId: string, month: string): Promise
     })),
   })
 
+  const other = await otherIncomeP
+  const otherIncomeBanked = other.receipts
+    .filter(r => r.received_date >= monthStart && r.received_date <= monthEnd)
+    .reduce((sum, r) => sum + r.gross, 0)
+
   return {
     assetName: asset?.asset_name ?? 'Asset',
     monthLabel,
     generatedAt: new Date().toLocaleString('en-GB'),
     rows,
     totalReceivedAll: (monthPayments ?? []).reduce((s, p) => s + parseFloat(p.amount ?? '0'), 0),
+    otherIncome: otherIncomeLinesForMonth(month, other.sources, other.receipts),
+    otherIncomeBanked: Math.round(otherIncomeBanked * 100) / 100,
   }
 }
 
@@ -176,12 +192,78 @@ export async function buildRentIncomeWorkbook(data: RentIncomeData): Promise<Uin
   }
   r += 2
 
+  // ----- Other income: kept apart from rent, which it is not -----
+  let tOther = 0
+  if (data.otherIncome.length > 0) {
+    ws.mergeCells(`A${r}:E${r}`)
+    ws.getCell(`A${r}`).value = 'Other income'
+    ws.getCell(`A${r}`).font = { bold: true, size: 12, color: { argb: NAVY } }
+    r++
+    const oh = ws.getRow(r)
+    ;['Source', 'Detail', 'Net', 'VAT', 'Received'].forEach((h, i) => {
+      const c = oh.getCell(i + 1)
+      c.value = h
+      c.font = { bold: true, color: { argb: WHITE }, size: 10 }
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }
+      c.alignment = { vertical: 'middle', horizontal: i < 2 ? 'left' : 'right' }
+    })
+    oh.height = 20
+    r++
+
+    let oNet = 0, oVat = 0
+    for (const line of data.otherIncome) {
+      const xr = ws.getRow(r)
+      xr.getCell(1).value = line.source
+      xr.getCell(2).value = [line.detail, line.received].filter(Boolean).join('. ')
+      xr.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+      xr.getCell(3).value = line.net
+      xr.getCell(4).value = line.vat
+      xr.getCell(5).value = line.gross
+      for (let c = 3; c <= 5; c++) xr.getCell(c).numFmt = MONEY
+      // A recurring source that did not pay reads like a vacant unit: present, but nil.
+      if (line.nil) for (let c = 1; c <= 5; c++) xr.getCell(c).font = { italic: true, color: { argb: 'FF94A3B8' } }
+      oNet += line.net; oVat += line.vat; tOther += line.gross
+      r++
+    }
+    const ot = ws.getRow(r)
+    ot.getCell(1).value = 'Total other income'
+    ot.getCell(3).value = oNet
+    ot.getCell(4).value = oVat
+    ot.getCell(5).value = tOther
+    for (let c = 1; c <= 5; c++) {
+      const c2 = ot.getCell(c)
+      c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT } }
+      c2.font = { bold: true, color: { argb: NAVY } }
+      c2.border = { top: { style: 'thin', color: { argb: 'FF94A3B8' } } }
+      if (c >= 3) c2.numFmt = MONEY
+    }
+    r += 2
+
+    const gt = ws.getRow(r)
+    gt.getCell(1).value = `Total received for ${data.monthLabel}`
+    gt.getCell(2).value = 'Rent plus other income'
+    gt.getCell(5).value = tRecv + tOther
+    gt.getCell(5).numFmt = MONEY
+    for (let c = 1; c <= 5; c++) {
+      const c2 = gt.getCell(c)
+      c2.font = { bold: true, color: { argb: NAVY } }
+      c2.border = { top: { style: 'thin', color: { argb: NAVY } }, bottom: { style: 'double', color: { argb: NAVY } } }
+    }
+    r += 2
+  }
+
+  const money = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   ws.mergeCells(`A${r}:E${r}`)
   ws.getCell(`A${r}`).value =
-    // Kept for bank reconciliation: this is cash that landed in the month, for any period,
-    // so it will not equal the Received column above and is not meant to.
-    `Cash banked in ${data.monthLabel} (all rent payments, whichever month they paid for): £${data.totalReceivedAll.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    // Kept for bank reconciliation: cash that landed in the month, for whichever month it
+    // paid for, so it will not equal the Received figures above and is not meant to.
+    `Cash banked in ${data.monthLabel}, whichever month it paid for: rent ${money(data.totalReceivedAll)}`
+    + (data.otherIncome.length > 0 || data.otherIncomeBanked > 0
+      ? `, other income ${money(data.otherIncomeBanked)}, total ${money(data.totalReceivedAll + data.otherIncomeBanked)}`
+      : '')
   ws.getCell(`A${r}`).font = { italic: true, size: 10, color: { argb: 'FF475569' } }
+  ws.getCell(`A${r}`).alignment = { wrapText: true }
+  ws.getRow(r).height = 28
 
   return new Uint8Array(await wb.xlsx.writeBuffer() as ArrayBuffer)
 }

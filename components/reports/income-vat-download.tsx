@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import type { AssetOpt } from './rent-income-download'
 
-/** Opera holds no rent before July 2026 — the system went live that month, so offering
- *  earlier months would only produce empty columns and an awkward conversation with the
- *  accountant. Anything before this has to come from the previous records. */
+/** Opera holds no rent before July 2026, when the system went live. Other income was
+ *  loaded back to December 2025, so earlier months can still be chosen; they carry other
+ *  income only, and the form says so. Rent before July has to come from the old records. */
 export const DATA_STARTS = '2026-07'
 
 function thisMonth(): string {
@@ -40,11 +40,11 @@ export default function IncomeVatDownload({ assets }: { assets: AssetOpt[] }) {
         </div>
         <div>
           <label className="block text-xs text-slate-500 mb-1.5">From</label>
-          <input type="month" min={DATA_STARTS} value={from} onChange={e => setFrom(e.target.value)} className={inputClass} />
+          <input type="month" value={from} onChange={e => setFrom(e.target.value)} className={inputClass} />
         </div>
         <div>
           <label className="block text-xs text-slate-500 mb-1.5">To</label>
-          <input type="month" min={DATA_STARTS} value={to} onChange={e => setTo(e.target.value)} className={inputClass} />
+          <input type="month" value={to} onChange={e => setTo(e.target.value)} className={inputClass} />
         </div>
         <button
           onClick={download}
@@ -59,8 +59,8 @@ export default function IncomeVatDownload({ assets }: { assets: AssetOpt[] }) {
       )}
       {!badRange && beforeData && (
         <p className="text-xs text-amber-700 mt-2">
-          Opera holds no rent before July 2026 — earlier months will come out empty. Records before then are
-          outside the system.
+          Opera holds no rent before July 2026, so months before then show other income only. Rent for those
+          months has to come from the records kept before Opera.
         </p>
       )}
     </div>

@@ -209,6 +209,22 @@ Nothing is marked as sent until step 4, so steps 1–3 are reversible.
   If CI is red, the deploy that Vercel does anyway is suspect — fix before using it.
 - **DB changes:** file in `supabase/migrations/` first, always (see supabase/README.md).
 
+## Other income (EV chargers, parking, car park, one-offs)
+
+On each property, the **Other Income** tab. Record what arrived, the day it arrived, and
+**the month it belongs to**, which is left blank on purpose so it is always chosen. VAT is
+one click: *No VAT*, *Includes 20% VAT*, or type it. A quarterly payment (Swarco) goes in
+once with *Months it covers* set to 3 and is spread evenly, so the income does not spike.
+
+Southgate sources as set up on 2026-09-21: EV chargers (Swarco, 20%), Unit 7 parking bays
+(Maximus, 20%), Car park (Vehicle Control Services, no VAT), and *Other (one-off)* for
+anything occasional. Add Suite 2.9 parking as its own source when its records are to hand.
+
+Receipts only. Opera does not invoice these payers or track what they owe, so outstanding
+amounts (Maximus from March 2026, the car park balance of GBP 784 for August) are visible
+only as nil lines in the monthly report. A wrong entry is removed with a reason and kept for
+the record; re-enter it correctly.
+
 ## Giving the accountant income and VAT figures
 
 **Reports → Rent Income & VAT by Month**, one property at a time. Pick the property and a
@@ -218,7 +234,7 @@ VAT and net rent per tenant. Each month shows what was **invoiced** against what
 
 Three things to say when handing it over:
 
-- **Rent only.** Electricity is not in it (owner instruction 2026-08-26). Electric VAT is
+- **Rent and other income, no electricity.** Other income is its own section and sheet. Electric VAT is
   real output VAT and will need adding if the accountant asks for the full picture.
 - **Opera holds nothing before July 2026.** The system went live that month; the first rent
   charges are for July 2026 and the first receipts are late June. Earlier periods have to

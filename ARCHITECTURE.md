@@ -127,6 +127,23 @@ verbatim thereafter (once migration `20260704120200` is applied).
   raises rather than falling back to the shared one and sending from the wrong account.
 - Southgate is invoiced like a landlord asset even though 2i is only agent; its income
   is excluded from owned-portfolio figures via `income_owned = false`.
+- **Other income is a separate ledger, receipts only** (2026-09-21, `lib/other-income.ts`,
+  tables `other_income_sources` / `other_income_receipts`). EV chargers, parking licences,
+  car park enforcement and one-offs: income with no lease. Nothing in the lease, invoicing,
+  payment, arrears, collection or dispatch code reads it; only the Other Income tab and the
+  two reports do. Every receipt belongs to a month regardless of when paid, and a payment
+  can be spread across up to 12 months (Swarco pay a quarter ahead). A **recurring** source
+  shows a line in every monthly report from its first receipt onwards, nil when nothing came
+  in, so a missed payment is visible; a **one-off** source is itemised and appears only when
+  it receives something. No invoicing and no tracking of what is owed, by instruction.
+- **Every `fn_*` must be revoked from PUBLIC, not just anon.** They are SECURITY DEFINER, so
+  they bypass row-level security and the only lock is EXECUTE. A new function is executable
+  by PUBLIC by default, and dropping and recreating one resets it. Two slipped through on
+  2026-08-26 and were open to the public anon key for four weeks (fixed 2026-09-21, see
+  migration `20260921095000`). Check after any new or recreated function:
+  `select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where nspname = 'public' and proname like 'fn\_%' and has_function_privilege('anon', p.oid, 'EXECUTE');`
+  should return nothing.
 - **The Monthly Rent Income report is by rent month, not by bank date** (2026-09-21,
   `lib/rent-income.ts`). "Received" is what has been allocated to that month's rent
   invoice, whenever the money arrived; the cash actually banked in the month survives

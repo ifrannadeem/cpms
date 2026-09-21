@@ -50,10 +50,11 @@ export default async function ReportsPage({ searchParams }: Props) {
       <section className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-1">Rent Income &amp; VAT by Month</h2>
         <p className="text-xs text-slate-400 mb-4 max-w-2xl">
-          Net rent, VAT and gross for each month, showing what was invoiced against what has been received.
-          Three sheets: a summary by month, then VAT and net rent broken down per tenant. Rent only, excluding
-          electricity. Figures sit in the month the rent relates to, not the month the invoice was raised.
-          One property at a time, as each sits in its own legal entity and VAT registration.
+          Net rent, VAT and gross for each month, showing what was invoiced against what has been received,
+          with other income (EV chargers, parking and so on) as its own section. Sheets: a summary by month, VAT
+          and net rent per tenant, and other income by source. Excludes electricity. Figures sit in the month they
+          relate to, not the month invoiced or paid. One property at a time, as each sits in its own legal entity
+          and VAT registration.
         </p>
         <IncomeVatDownload assets={assetList} />
       </section>
@@ -63,8 +64,9 @@ export default async function ReportsPage({ searchParams }: Props) {
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-1">Monthly Rent Income</h2>
         <p className="text-xs text-slate-400 mb-4 max-w-2xl">
           Every unit for the chosen month: the rent billed for that month, what has been received against it
-          (whenever it was paid), and what is still outstanding. Empty units show as Vacant. A footnote gives the
-          cash actually banked in the month, for reconciling to the bank statement.
+          (whenever it was paid), and what is still outstanding. Empty units show as Vacant. Other income follows
+          in its own section, one line per regular source, then a combined total. A footnote gives the cash
+          actually banked in the month, for reconciling to the bank statement.
         </p>
         <RentIncomeDownload assets={assetList} />
       </section>

@@ -33,4 +33,6 @@ export const BACKUP_TABLES = [
   'arrears_actions',
   'tenant_activity',
   'vat_config',
+  'other_income_sources',
+  'other_income_receipts',
 ] as const

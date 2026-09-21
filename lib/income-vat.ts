@@ -1,13 +1,16 @@
 import ExcelJS from 'exceljs'
 import { unitLabel } from './format'
 import { supabase } from './supabase'
+import { otherIncomeBySource, type OtherIncomeCell, type OtherIncomeSourceRow } from './other-income'
+import { fetchOtherIncome } from './other-income-data'
 
 /**
  * Monthly rent income and VAT, invoiced against received, for one asset.
  *
  * Built for the accountant's request (2026-08-26). Deliberately narrow:
  *
- *  - **Rent only.** Electricity is excluded, on instruction.
+ *  - **Rent, plus other income as its own section** (from 2026-09-21: EV chargers, parking,
+ *    car park, one-offs; see lib/other-income.ts). Electricity is excluded, on instruction.
  *  - **Figures sit in the month the rent relates to** (`period_start`), not the month the
  *    invoice was raised. Rent is billed in advance, so September's rent invoiced in August
  *    belongs to September here. The older "VAT on Rent" report anchors on `issued_date`
@@ -68,6 +71,11 @@ export interface IncomeVatReport {
    *  relief the accountant needs to know about. */
   cancelledByMonth: Record<string, number>
   cancelledTotal: number
+  /** Income outside the leases, received, by source and month. Receipts only: nothing is
+   *  invoiced, so there is no invoiced-against-received comparison as there is for rent. */
+  otherIncome: OtherIncomeSourceRow[]
+  otherMonthTotals: Record<string, OtherIncomeCell>
+  otherTotal: OtherIncomeCell
   generatedAt: string
 }
 
@@ -202,6 +210,24 @@ export async function computeIncomeVat(
   const rows = Array.from(rowMap.values())
     .sort((a, b) => a.unit.localeCompare(b.unit, undefined, { numeric: true }))
 
+  const other = await fetchOtherIncome(assetId)
+  const monthKeys = months.map(m => m.key)
+  const otherIncome = otherIncomeBySource(monthKeys, other.sources, other.receipts)
+  const otherMonthTotals: Record<string, OtherIncomeCell> = {}
+  const otherTotal: OtherIncomeCell = { net: 0, vat: 0, gross: 0 }
+  for (const k of monthKeys) {
+    const t = { net: 0, vat: 0, gross: 0 }
+    for (const row of otherIncome) {
+      t.net = round2(t.net + row.byMonth[k].net)
+      t.vat = round2(t.vat + row.byMonth[k].vat)
+      t.gross = round2(t.gross + row.byMonth[k].gross)
+    }
+    otherMonthTotals[k] = t
+    otherTotal.net = round2(otherTotal.net + t.net)
+    otherTotal.vat = round2(otherTotal.vat + t.vat)
+    otherTotal.gross = round2(otherTotal.gross + t.gross)
+  }
+
   return {
     assetName: asset?.asset_name ?? 'Asset',
     entityName: entity?.entity_name ?? null,
@@ -209,6 +235,7 @@ export async function computeIncomeVat(
     registered: cfg?.registered !== false,
     fromMonth, toMonth, months, rows, monthTotals, total,
     cancelledByMonth, cancelledTotal,
+    otherIncome, otherMonthTotals, otherTotal,
     generatedAt: new Date().toLocaleString('en-GB'),
   }
 }
@@ -251,8 +278,8 @@ export async function buildIncomeVatWorkbook(r: IncomeVatReport): Promise<Uint8A
   s.getCell('A3').font = { size: 12, color: { argb: MUTED } }
   s.mergeCells('A4:J4')
   s.getCell('A4').value =
-    'Rent only — excludes electricity. Figures sit in the month the rent relates to, not the month the invoice was raised. '
-    + 'Received is money actually allocated to those invoices; VAT on a part payment is apportioned from the invoice.'
+    'Rent and other income; excludes electricity. Figures sit in the month they relate to, not the month invoiced or paid. '
+    + 'Rent received is money allocated to those invoices; VAT on a part payment is apportioned from the invoice.'
   s.getCell('A4').font = { size: 9, italic: true, color: { argb: FAINT } }
   s.getCell('A4').alignment = { wrapText: true }
   s.getRow(4).height = 24
@@ -329,6 +356,56 @@ export async function buildIncomeVatWorkbook(r: IncomeVatReport): Promise<Uint8A
     row++
     s.mergeCells(`A${row}:J${row}`)
     s.getCell(`A${row}`).value = 'A written-off debt may carry VAT bad debt relief — worth raising with the accountant.'
+    s.getCell(`A${row}`).font = { size: 9, italic: true, color: { argb: FAINT } }
+    row += 2
+  }
+
+  if (r.otherIncome.length > 0) {
+    s.getCell(`A${row}`).value = 'Other income (not rent)'
+    s.getCell(`A${row}`).font = { bold: true, size: 12, color: { argb: NAVY } }
+    row++
+    s.mergeCells(`F${row}:H${row}`)
+    const ob = s.getCell(`F${row}`)
+    ob.value = 'Received'
+    ob.alignment = { horizontal: 'center' }
+    ob.font = { bold: true, size: 10, color: { argb: NAVY } }
+    ob.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BAND } }
+    row++
+    const oh = s.getRow(row)
+    const oHeads = ['Month', '', '', '', '', 'Net', 'VAT', 'Gross']
+    oHeads.forEach((h, i) => {
+      const cell = oh.getCell(i + 1)
+      cell.value = h || null
+      cell.font = { bold: true, color: { argb: WHITE }, size: 9 }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }
+      cell.alignment = { horizontal: i === 0 ? 'left' : 'right' }
+    })
+    row++
+    for (const m of r.months) {
+      const t = r.otherMonthTotals[m.key]
+      const xr = s.getRow(row)
+      xr.getCell(1).value = m.label
+      xr.getCell(6).value = t.net
+      xr.getCell(7).value = t.vat
+      xr.getCell(8).value = t.gross
+      for (const c of [6, 7, 8]) xr.getCell(c).numFmt = MONEY
+      row++
+    }
+    const ot = s.getRow(row)
+    ot.getCell(1).value = 'Total'
+    ot.getCell(6).value = r.otherTotal.net
+    ot.getCell(7).value = r.otherTotal.vat
+    ot.getCell(8).value = r.otherTotal.gross
+    for (const c of [6, 7, 8]) ot.getCell(c).numFmt = MONEY
+    for (let c = 1; c <= 10; c++) {
+      const cell = ot.getCell(c)
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT } }
+      cell.font = { bold: true, color: { argb: NAVY } }
+      cell.border = { top: { style: 'thin', color: { argb: FAINT } } }
+    }
+    row++
+    s.mergeCells(`A${row}:J${row}`)
+    s.getCell(`A${row}`).value = 'Broken down by source on the "Other income" sheet. Receipts only: nothing is invoiced from Opera for these.'
     s.getCell(`A${row}`).font = { size: 9, italic: true, color: { argb: FAINT } }
     row += 2
   }
@@ -459,6 +536,115 @@ export async function buildIncomeVatWorkbook(r: IncomeVatReport): Promise<Uint8A
 
   detail('VAT on Rent', 'VAT by tenant', c => ({ invoiced: c.vatInvoiced, received: c.vatReceived }))
   detail('Rent (net of VAT)', 'Rent by tenant', c => ({ invoiced: c.netInvoiced, received: c.netReceived }))
+
+  // ----- Sheet 4: other income by source -----
+  if (r.otherIncome.length > 0) {
+    const ws = wb.addWorksheet('Other income', {
+      views: [{ state: 'frozen', xSplit: 2, ySplit: 7 }],
+      pageSetup: { fitToPage: true, fitToWidth: 1, orientation: 'landscape' },
+    })
+    const cols: Partial<ExcelJS.Column>[] = [{ width: 22 }, { width: 32 }]
+    for (let i = 0; i < r.months.length; i++) cols.push({ width: 12 }, { width: 11 })
+    cols.push({ width: 13 }, { width: 12 }, { width: 13 })
+    ws.columns = cols
+    const lastCol = 2 + r.months.length * 2 + 3
+
+    ws.mergeCells(`A1:${colLetter(lastCol)}1`)
+    ws.getCell('A1').value = `${r.assetName}: Other Income`
+    ws.getCell('A1').font = { bold: true, size: 15, color: { argb: NAVY } }
+    ws.mergeCells(`A2:${colLetter(lastCol)}2`)
+    ws.getCell('A2').value = `${entityLine}. ${periodLabel}`
+    ws.getCell('A2').font = { size: 11, color: { argb: MUTED } }
+    ws.mergeCells(`A3:${colLetter(lastCol)}3`)
+    ws.getCell('A3').value =
+      'Money received outside the leases, in the month it relates to. A recurring source shows nil in a month it did not pay.'
+    ws.getCell('A3').font = { size: 9, italic: true, color: { argb: FAINT } }
+    ws.getRow(4).height = 4
+
+    const band = ws.getRow(6)
+    const head = ws.getRow(7)
+    head.getCell(1).value = 'Source'
+    head.getCell(2).value = 'Payer'
+    let c = 3
+    r.months.forEach((m, mi) => {
+      ws.mergeCells(`${colLetter(c)}6:${colLetter(c + 1)}6`)
+      const bc = band.getCell(c)
+      bc.value = m.label
+      bc.alignment = { horizontal: 'center' }
+      bc.font = { bold: true, size: 10, color: { argb: NAVY } }
+      bc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mi % 2 === 0 ? BAND : LIGHT } }
+      head.getCell(c).value = 'Net'
+      head.getCell(c + 1).value = 'VAT'
+      c += 2
+    })
+    ws.mergeCells(`${colLetter(c)}6:${colLetter(c + 2)}6`)
+    const tb = band.getCell(c)
+    tb.value = 'Total'
+    tb.alignment = { horizontal: 'center' }
+    tb.font = { bold: true, size: 10, color: { argb: NAVY } }
+    tb.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BAND } }
+    head.getCell(c).value = 'Net'
+    head.getCell(c + 1).value = 'VAT'
+    head.getCell(c + 2).value = 'Gross'
+    for (let i = 1; i <= lastCol; i++) {
+      const hc = head.getCell(i)
+      hc.font = { bold: true, color: { argb: WHITE }, size: 9 }
+      hc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }
+      hc.alignment = { vertical: 'middle', horizontal: i <= 2 ? 'left' : 'right' }
+    }
+    head.height = 18
+
+    let rr = 8
+    for (const src of r.otherIncome) {
+      const xr = ws.getRow(rr)
+      xr.getCell(1).value = src.source + (src.recurring ? '' : ' (one-off)')
+      xr.getCell(2).value = src.payer || null
+      let cc = 3
+      for (const m of r.months) {
+        const v = src.byMonth[m.key]
+        xr.getCell(cc).value = v.net
+        xr.getCell(cc).numFmt = MONEY
+        xr.getCell(cc + 1).value = v.vat
+        xr.getCell(cc + 1).numFmt = MONEY
+        // A recurring source that received nothing that month, shown rather than hidden.
+        if (src.recurring && v.gross === 0) {
+          xr.getCell(cc).font = { italic: true, color: { argb: FAINT } }
+          xr.getCell(cc + 1).font = { italic: true, color: { argb: FAINT } }
+        }
+        cc += 2
+      }
+      xr.getCell(cc).value = src.total.net
+      xr.getCell(cc + 1).value = src.total.vat
+      xr.getCell(cc + 2).value = src.total.gross
+      for (let k = 0; k < 3; k++) {
+        xr.getCell(cc + k).numFmt = MONEY
+        xr.getCell(cc + k).font = { bold: true, color: { argb: NAVY } }
+      }
+      rr++
+    }
+
+    const tr = ws.getRow(rr)
+    tr.getCell(1).value = 'Total'
+    let tc = 3
+    for (const m of r.months) {
+      const t = r.otherMonthTotals[m.key]
+      tr.getCell(tc).value = t.net
+      tr.getCell(tc).numFmt = MONEY
+      tr.getCell(tc + 1).value = t.vat
+      tr.getCell(tc + 1).numFmt = MONEY
+      tc += 2
+    }
+    tr.getCell(tc).value = r.otherTotal.net
+    tr.getCell(tc + 1).value = r.otherTotal.vat
+    tr.getCell(tc + 2).value = r.otherTotal.gross
+    for (let k = 0; k < 3; k++) tr.getCell(tc + k).numFmt = MONEY
+    for (let i = 1; i <= lastCol; i++) {
+      const cell = tr.getCell(i)
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LIGHT } }
+      cell.font = { bold: true, color: { argb: NAVY } }
+      cell.border = { top: { style: 'thin', color: { argb: FAINT } } }
+    }
+  }
 
   return new Uint8Array(await wb.xlsx.writeBuffer() as ArrayBuffer)
 }
